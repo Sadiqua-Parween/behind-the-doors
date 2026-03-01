@@ -29,7 +29,11 @@ export class Level {
             woodDoor: new THREE.MeshStandardMaterial({ map: woodDoorTexture, roughness: 0.7, metalness: 0.1 }),
             sofaLeather: new THREE.MeshStandardMaterial({ map: sofaTexture, roughness: 0.4, metalness: 0.1 }),
             bedFabric: new THREE.MeshStandardMaterial({ map: bedTexture, roughness: 0.9 }),
-            wardrobeWood: new THREE.MeshStandardMaterial({ map: wardrobeTexture, roughness: 0.7, metalness: 0.2 })
+            wardrobeWood: new THREE.MeshStandardMaterial({ map: wardrobeTexture, roughness: 0.7, metalness: 0.2 }),
+            greenWallpaper: new THREE.MeshStandardMaterial({ color: 0x4B5320, roughness: 0.9 }),
+            wainscoting: new THREE.MeshStandardMaterial({ color: 0x362111, roughness: 0.8 }),
+            roomCeiling: new THREE.MeshStandardMaterial({ color: 0x2e1911, roughness: 0.9 }),
+            roomFloor: new THREE.MeshStandardMaterial({ color: 0x24150E, roughness: 0.8 })
         };
 
         this.buildEnvironment();
@@ -77,8 +81,9 @@ export class Level {
 
         // Trap Door (Open initially, moved into the Z wall)
         const doorGeometry = new THREE.BoxGeometry(thickness, wallHeight - 0.5, 3);
-        this.trapDoor = new THREE.Mesh(doorGeometry, this.materials.metal);
+        this.trapDoor = new THREE.Mesh(doorGeometry, this.materials.wood);
         this.trapDoor.position.set(corridorLength / 2, (wallHeight - 0.5) / 2, 3);
+        this.decorateVictorianDoor(this.trapDoor);
         this.trapDoor.userData = { id: 'trap_door_open', interactable: false, prompt: "Open Door" };
         this.scene.add(this.trapDoor);
         this.trapTriggered = false;
@@ -88,27 +93,43 @@ export class Level {
         const roomCenter = corridorLength / 2 + roomSize / 2; // X = 30
 
         // Room Floor and Ceiling
-        this.createBox(roomSize, thickness, roomSize, this.materials.floor, new THREE.Vector3(roomCenter, -thickness / 2, 0));
-        this.createBox(roomSize, thickness, roomSize, this.materials.ceiling, new THREE.Vector3(roomCenter, wallHeight + thickness / 2, 0));
+        this.createBox(roomSize, thickness, roomSize, this.materials.roomFloor, new THREE.Vector3(roomCenter, -thickness / 2, 0));
+        this.createBox(roomSize, thickness, roomSize, this.materials.roomCeiling, new THREE.Vector3(roomCenter, wallHeight + thickness / 2, 0));
 
         // Room North/South Walls
-        this.createBox(roomSize, wallHeight, thickness, this.materials.wall, new THREE.Vector3(roomCenter, wallHeight / 2, -roomSize / 2));
-        this.createBox(roomSize, wallHeight, thickness, this.materials.wall, new THREE.Vector3(roomCenter, wallHeight / 2, roomSize / 2));
+        this.createBox(roomSize, wallHeight, thickness, this.materials.greenWallpaper, new THREE.Vector3(roomCenter, wallHeight / 2, -roomSize / 2));
+        this.createBox(roomSize, wallHeight, thickness, this.materials.greenWallpaper, new THREE.Vector3(roomCenter, wallHeight / 2, roomSize / 2));
 
         // Room East Wall (Exit)
-        this.createBox(thickness, wallHeight, roomSize / 2 - 1.5, this.materials.wall, new THREE.Vector3(roomCenter + roomSize / 2, wallHeight / 2, -roomSize / 4 - 0.75));
-        this.createBox(thickness, wallHeight, roomSize / 2 - 1.5, this.materials.wall, new THREE.Vector3(roomCenter + roomSize / 2, wallHeight / 2, roomSize / 4 + 0.75));
+        this.createBox(thickness, wallHeight, roomSize / 2 - 1.5, this.materials.greenWallpaper, new THREE.Vector3(roomCenter + roomSize / 2, wallHeight / 2, -roomSize / 4 - 0.75));
+        this.createBox(thickness, wallHeight, roomSize / 2 - 1.5, this.materials.greenWallpaper, new THREE.Vector3(roomCenter + roomSize / 2, wallHeight / 2, roomSize / 4 + 0.75));
 
         // The Final Exit Door
-        this.exitDoor = new THREE.Mesh(doorGeometry, this.materials.metal);
+        this.exitDoor = new THREE.Mesh(doorGeometry, this.materials.wood);
         this.exitDoor.position.set(roomCenter + roomSize / 2, (wallHeight - 0.5) / 2, 0);
+        this.decorateVictorianDoor(this.exitDoor);
         this.exitDoor.userData = { id: 'exit_door_locked', interactable: true, prompt: "Locked Exit Door", dialogue: "It's locked tight. Is there a key in here?" };
         this.scene.add(this.exitDoor);
         this.colliders.push(this.exitDoor);
 
         // Room West Wall (Connects to Corridor, closing the gap)
-        this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.wall, new THREE.Vector3(corridorLength / 2, wallHeight / 2, -roomSize / 2 + (roomSize - corridorWidth) / 4));
-        this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.wall, new THREE.Vector3(corridorLength / 2, wallHeight / 2, roomSize / 2 - (roomSize - corridorWidth) / 4));
+        this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.greenWallpaper, new THREE.Vector3(corridorLength / 2, wallHeight / 2, -roomSize / 2 + (roomSize - corridorWidth) / 4));
+        this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.greenWallpaper, new THREE.Vector3(corridorLength / 2, wallHeight / 2, roomSize / 2 - (roomSize - corridorWidth) / 4));
+
+        // Wooden Wainscoting (Inner lower half of the walls)
+        const wainHeight = 1.5;
+        const wDepth = 0.1;
+        // North/South Wainscot
+        this.createBox(roomSize, wainHeight, wDepth, this.materials.wainscoting, new THREE.Vector3(roomCenter, wainHeight / 2, -roomSize / 2 + thickness / 2 + wDepth / 2));
+        this.createBox(roomSize, wainHeight, wDepth, this.materials.wainscoting, new THREE.Vector3(roomCenter, wainHeight / 2, roomSize / 2 - thickness / 2 - wDepth / 2));
+
+        // East Wainscot (split by door)
+        this.createBox(wDepth, wainHeight, roomSize / 2 - 1.5, this.materials.wainscoting, new THREE.Vector3(roomCenter + roomSize / 2 - thickness / 2 - wDepth / 2, wainHeight / 2, -roomSize / 4 - 0.75));
+        this.createBox(wDepth, wainHeight, roomSize / 2 - 1.5, this.materials.wainscoting, new THREE.Vector3(roomCenter + roomSize / 2 - thickness / 2 - wDepth / 2, wainHeight / 2, roomSize / 4 + 0.75));
+
+        // West Wainscot (split by corridor entrance)
+        this.createBox(wDepth, wainHeight, (roomSize - corridorWidth) / 2, this.materials.wainscoting, new THREE.Vector3(corridorLength / 2 + thickness / 2 + wDepth / 2, wainHeight / 2, -roomSize / 2 + (roomSize - corridorWidth) / 4));
+        this.createBox(wDepth, wainHeight, (roomSize - corridorWidth) / 2, this.materials.wainscoting, new THREE.Vector3(corridorLength / 2 + thickness / 2 + wDepth / 2, wainHeight / 2, roomSize / 2 - (roomSize - corridorWidth) / 4));
 
         // West Wall (Elevator entrance wall)
         // Left and right side of the elevator doors
@@ -178,8 +199,8 @@ export class Level {
     }
 
     buildLighting() {
-        // Dim ambient light (not pitch black, not bright white)
-        const ambient = new THREE.AmbientLight(0x444444, 0.5); // Reduced intensity
+        // Bright ambient light (permanently illuminates entire map)
+        const ambient = new THREE.AmbientLight(0x444444, 3.0);
         this.scene.add(ambient);
 
         // A flickering overhead light halfway down the corridor
@@ -215,44 +236,42 @@ export class Level {
 
         // Escape Room Lighting
         this.createCeilingLight(31.5, 4, 0, 0xffcc88, 50.0); // Extreme bright central light
-        this.createCeilingLight(23, 4, -9, 0xffcc88, 25.0); // NW corner
-        this.createCeilingLight(40, 4, -9, 0xffcc88, 25.0); // NE corner
-        this.createCeilingLight(23, 4, 9, 0xffcc88, 25.0); // SW corner
-        this.createCeilingLight(40, 4, 9, 0xffcc88, 25.0); // SE corner
+        this.createLantern(23, 3.8, -9, 0xffaa55, 15.0); // NW corner
+        this.createLantern(40, 3.8, -9, 0xffaa55, 15.0); // NE corner
+        this.createLantern(23, 3.8, 9, 0xffaa55, 15.0);  // SW corner
+        this.createLantern(40, 3.8, 9, 0xffaa55, 15.0);  // SE corner
 
         // Determine random key location
-        const hidingSpots = ['wardrobe', 'bed', 'desk', 'sofa'];
+        const hidingSpots = ['table', 'cupboard'];
         this.keyLocation = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
         console.log("Key hidden in:", this.keyLocation); // For debugging
 
         // Add Escape Room Furniture
-        // Center Desk
-        const roomDesk = this.createDesk(31.5, 0, 0.5);
-        roomDesk.userData = { id: 'desk', interactable: true, prompt: "Search Desk", hasKey: this.keyLocation === 'desk' };
-        this.colliders.push(roomDesk);
 
-        this.createChair(31.5, 0, -1.5, 0);
+        // Victorian Red Carpet
+        const carpetGeo = new THREE.BoxGeometry(12, 0.05, 10);
+        const carpetMat = new THREE.MeshStandardMaterial({ color: 0x660000, roughness: 0.9, bumpMap: this.resources.textures.wood, bumpScale: 0.02 }); // Simple pattern
+        const carpet = new THREE.Mesh(carpetGeo, carpetMat);
+        carpet.position.set(roomCenter, 0.025, 0); // Center of room, barely above floor
+        this.scene.add(carpet);
 
-        // Bookshelves along walls
-        for (let x = 22; x <= 40; x += 3) {
-            // Leave space for bed in NW (-9.5) and wardrobe in NE (-9.5)
-            if (x > 28 && x < 36) this.createBookshelf(x, 0, -9.5, 0); // North Wall
-            // Leave space for sofa in SE (9.5)
-            if (x < 33 || x > 38) this.createBookshelf(x, 0, 9.5, Math.PI); // South Wall
-        }
+        // NW Corner: Small Table with Drawers
+        const table = this.createCornerTable(23, 0, -8, 0);
+        table.userData = { id: 'table', interactable: true, prompt: "Search Drawers", hasKey: this.keyLocation === 'table' };
+        this.colliders.push(table);
 
-        // New Furniture
-        const bed = this.createBed(25, 0, -7.5);
-        bed.userData = { id: 'bed', interactable: true, prompt: "Search Bed", hasKey: this.keyLocation === 'bed' };
-        this.colliders.push(bed);
+        // South Wall: Aesthetic Cupboard and Bookshelf
+        const cupboard = this.createAestheticCupboard(30, 0, 9, Math.PI);
+        cupboard.userData = { id: 'cupboard', interactable: true, prompt: "Search Cupboard", hasKey: this.keyLocation === 'cupboard' };
+        this.colliders.push(cupboard);
 
-        const sofa = this.createSofa(36.5, 0, 8.5, Math.PI);
-        sofa.userData = { id: 'sofa', interactable: true, prompt: "Search Sofa", hasKey: this.keyLocation === 'sofa' };
-        this.colliders.push(sofa);
+        const bookshelf = this.createVictorianBookshelf(23, 0, 9, Math.PI);
+        bookshelf.userData = { id: 'bookshelf', interactable: true, prompt: "Search Bookshelf", hasKey: false };
+        this.colliders.push(bookshelf);
 
-        const wardrobe = this.createWardrobe(38.5, 0, -8.5, Math.PI / -2);
-        wardrobe.userData = { id: 'wardrobe', interactable: true, prompt: "Search Wardrobe", hasKey: this.keyLocation === 'wardrobe' };
-        this.colliders.push(wardrobe);
+        // East Wall (Flanking the door): Boarded Windows
+        this.createBoardedWindow(39.9, 1.5, -5, -Math.PI / 2);
+        this.createBoardedWindow(39.9, 1.5, 5, -Math.PI / 2);
 
         // Add the Satanist paintings to the walls of the corridor
         // Corridor Width is 6 (Z from -3 to 3). Wall surfaces are at Z = -2.9 and Z = 2.9 roughly.
@@ -370,21 +389,97 @@ export class Level {
         this.createBox(0.8, 1.4, 0.8, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.7, z));
     }
 
-    createBookshelf(x, y, z, rotationY) {
+    createVictorianBookshelf(x, y, z, rotationY) {
         const shelfGroup = new THREE.Group();
 
-        // Main body
-        const bodyGeo = new THREE.BoxGeometry(2, 4, 1);
-        const body = new THREE.Mesh(bodyGeo, this.materials.wood);
-        body.position.y = 2;
-        shelfGroup.add(body);
+        // Main framework
+        const frameworkGeo = new THREE.BoxGeometry(3, 5, 1.2);
+        const framework = new THREE.Mesh(frameworkGeo, this.materials.wood);
+        framework.position.y = 2.5;
+        shelfGroup.add(framework);
+
+        // Inner backing (dark)
+        const backGeo = new THREE.BoxGeometry(2.8, 4.8, 0.1);
+        const back = new THREE.Mesh(backGeo, new THREE.MeshStandardMaterial({ color: 0x110a05 }));
+        back.position.set(0, 2.5, -0.55);
+        shelfGroup.add(back);
+
+        // Book colors
+        const bookMats = [
+            new THREE.MeshStandardMaterial({ color: 0x4B1919 }), // Dark Red
+            new THREE.MeshStandardMaterial({ color: 0x193319 }), // Dark Green
+            new THREE.MeshStandardMaterial({ color: 0x19194B }), // Dark Blue
+            new THREE.MeshStandardMaterial({ color: 0x3d2b1f }), // Brown
+            new THREE.MeshStandardMaterial({ color: 0x111111 })  // Black
+        ];
+
+        // Shelves and books
+        const shelfGeo = new THREE.BoxGeometry(2.8, 0.1, 1.0);
+        for (let i = 0.8; i < 5.0; i += 1.0) {
+            const shelf = new THREE.Mesh(shelfGeo, this.materials.wood);
+            shelf.position.y = i;
+            shelf.position.z = -0.05;
+            shelfGroup.add(shelf);
+
+            // Populate books
+            let currentX = -1.3;
+            while (currentX < 1.3) {
+                const bWidth = 0.1 + Math.random() * 0.15;
+                const bHeight = 0.5 + Math.random() * 0.3;
+                if (currentX + bWidth > 1.3) break;
+
+                const bookGeo = new THREE.BoxGeometry(bWidth, bHeight, 0.6);
+                const mat = bookMats[Math.floor(Math.random() * bookMats.length)];
+                const book = new THREE.Mesh(bookGeo, mat);
+
+                if (Math.random() > 0.8) book.rotation.z = (Math.random() - 0.5) * 0.3;
+
+                book.position.set(currentX + bWidth / 2, i + bHeight / 2 + 0.05, -0.1 + Math.random() * 0.1);
+                shelfGroup.add(book);
+
+                currentX += bWidth + 0.02;
+            }
+        }
 
         shelfGroup.position.set(x, y, z);
         shelfGroup.rotation.y = rotationY;
         this.scene.add(shelfGroup);
+        const hitBox = this.createBox(3, 5, 1.2, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.5, z));
+        return hitBox;
+    }
 
-        // Invisible collider
-        this.createBox(2, 4, 1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2, z));
+    createFireplace(x, y, z, rotationY) {
+        const fpGroup = new THREE.Group();
+
+        // Main wooden mantel body
+        const mantelGeo = new THREE.BoxGeometry(6, 4, 1.5);
+        const mantel = new THREE.Mesh(mantelGeo, this.materials.wood);
+        mantel.position.y = 2;
+        fpGroup.add(mantel);
+
+        // Firebox cutout (inner brick/black)
+        const holeGeo = new THREE.BoxGeometry(3.2, 2.5, 1.6);
+        const hole = new THREE.Mesh(holeGeo, new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1.0 }));
+        hole.position.set(0, 1.25, 0.1);
+        fpGroup.add(hole);
+
+        // Mantel top ledge
+        const topGeo = new THREE.BoxGeometry(6.5, 0.2, 1.8);
+        const top = new THREE.Mesh(topGeo, this.materials.wood);
+        top.position.set(0, 4.1, 0.1);
+        fpGroup.add(top);
+
+        // Fire light inside
+        const fireLight = new THREE.PointLight(0xff6600, 5, 5);
+        fireLight.position.set(0, 0.5, 0.5);
+        fpGroup.add(fireLight);
+
+        fpGroup.position.set(x, y, z);
+        fpGroup.rotation.y = rotationY;
+        this.scene.add(fpGroup);
+
+        const hitBox = this.createBox(6, 4.2, 1.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.1, z));
+        return hitBox;
     }
 
     createBed(x, y, z) {
@@ -518,5 +613,223 @@ export class Level {
                 "I'm trapped... I need to find another way out of here."
             ]);
         }
+    }
+
+    createCornerTable(x, y, z, rotationY) {
+        const tableGroup = new THREE.Group();
+
+        // Table top (smaller rectangle)
+        const topGeo = new THREE.BoxGeometry(2.5, 0.2, 1.5);
+        const top = new THREE.Mesh(topGeo, this.materials.wood);
+        top.position.y = 1.6;
+        tableGroup.add(top);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.2, 1.6, 0.2);
+        const l1 = new THREE.Mesh(legGeo, this.materials.wood); l1.position.set(-1.15, 0.8, -0.65);
+        const l2 = new THREE.Mesh(legGeo, this.materials.wood); l2.position.set(1.15, 0.8, -0.65);
+        const l3 = new THREE.Mesh(legGeo, this.materials.wood); l3.position.set(-1.15, 0.8, 0.65);
+        const l4 = new THREE.Mesh(legGeo, this.materials.wood); l4.position.set(1.15, 0.8, 0.65);
+        tableGroup.add(l1, l2, l3, l4);
+
+        // Drawer Casing
+        const caseGeo = new THREE.BoxGeometry(2.4, 0.4, 1.4);
+        const casing = new THREE.Mesh(caseGeo, this.materials.wainscoting); // darker wood contrast
+        casing.position.set(0, 1.3, 0);
+        tableGroup.add(casing);
+
+
+
+        // Drawers mapping (front faces)
+        const drawGeo = new THREE.BoxGeometry(1.0, 0.3, 0.1);
+        const drawMat = this.materials.wood;
+        const handleGeo = new THREE.BoxGeometry(0.2, 0.05, 0.05);
+
+        // Drawer 1 Group
+        const drawer1 = new THREE.Group();
+        const d1 = new THREE.Mesh(drawGeo, drawMat);
+        const h1 = new THREE.Mesh(handleGeo, this.materials.metal);
+        h1.position.z = 0.06;
+        drawer1.add(d1, h1);
+        drawer1.position.set(-0.6, 1.3, 0.72);
+        tableGroup.add(drawer1);
+
+        // Drawer 2 Group
+        const drawer2 = new THREE.Group();
+        const d2 = new THREE.Mesh(drawGeo, drawMat);
+        const h2 = new THREE.Mesh(handleGeo, this.materials.metal);
+        h2.position.z = 0.06;
+        drawer2.add(d2, h2);
+        drawer2.position.set(0.6, 1.3, 0.72);
+        tableGroup.add(drawer2);
+
+        tableGroup.position.set(x, y, z);
+        tableGroup.rotation.y = rotationY;
+        this.scene.add(tableGroup);
+
+        const hitBox = this.createBox(2.5, 1.7, 1.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.85, z));
+        hitBox.userData.animatableParts = [drawer1, drawer2];
+        return hitBox;
+    }
+
+    createAestheticCupboard(x, y, z, rotationY) {
+        const cbGroup = new THREE.Group();
+
+        // Main body frame (hollowed out front, scaled down)
+        const frameGeo = new THREE.BoxGeometry(3.6, 2.0, 1.0);
+        const frame = new THREE.Mesh(frameGeo, this.materials.wood);
+        frame.position.y = 1.0;
+        frame.position.z = -0.05;
+        cbGroup.add(frame);
+
+        // Cupboard Doors
+        const doorGeo = new THREE.BoxGeometry(1.7, 1.9, 0.1);
+        const handleGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
+
+        // Left Door (hinge on left)
+        const doorL = new THREE.Group();
+        const meshL = new THREE.Mesh(doorGeo, this.materials.wainscoting);
+        meshL.position.x = 0.85; // Shift mesh right from hinge
+        const h1 = new THREE.Mesh(handleGeo, this.materials.metal);
+        h1.position.set(1.5, 0, 0.1); // Handle near right edge
+        doorL.add(meshL, h1);
+        doorL.position.set(-1.75, 1.0, 0.45); // Hinge position
+        cbGroup.add(doorL);
+
+        // Right Door (hinge on right)
+        const doorR = new THREE.Group();
+        const meshR = new THREE.Mesh(doorGeo, this.materials.wainscoting);
+        meshR.position.x = -0.85; // Shift mesh left from hinge
+        const h2 = new THREE.Mesh(handleGeo, this.materials.metal);
+        h2.position.set(-1.5, 0, 0.1); // Handle near left edge
+        doorR.add(meshR, h2);
+        doorR.position.set(1.75, 1.0, 0.45); // Hinge position
+        cbGroup.add(doorR);
+
+        cbGroup.position.set(x, y, z);
+        cbGroup.rotation.y = rotationY;
+        this.scene.add(cbGroup);
+
+        const hitBox = this.createBox(3.8, 2.1, 1.1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 1.0, z));
+        hitBox.userData.animatableParts = [doorL, doorR];
+        hitBox.userData.isDoubleDoor = true;
+        return hitBox;
+    }
+
+    createBoardedWindow(x, y, z, rotationY) {
+        const winGroup = new THREE.Group();
+
+        // Recessed frame (dark)
+        const frameGeo = new THREE.BoxGeometry(2, 3, 0.1);
+        const frame = new THREE.Mesh(frameGeo, new THREE.MeshStandardMaterial({ color: 0x050505 })); // Black hole
+        winGroup.add(frame);
+
+        // Window casing
+        const casingTopGeo = new THREE.BoxGeometry(2.4, 0.2, 0.2);
+        const cTop = new THREE.Mesh(casingTopGeo, this.materials.wood);
+        cTop.position.set(0, 1.6, 0.05);
+        winGroup.add(cTop);
+        const cBot = new THREE.Mesh(casingTopGeo, this.materials.wood);
+        cBot.position.set(0, -1.6, 0.05);
+        winGroup.add(cBot);
+
+        const casingSideGeo = new THREE.BoxGeometry(0.2, 3.4, 0.2);
+        const cL = new THREE.Mesh(casingSideGeo, this.materials.wood);
+        cL.position.set(-1.1, 0, 0.05);
+        winGroup.add(cL);
+        const cR = new THREE.Mesh(casingSideGeo, this.materials.wood);
+        cR.position.set(1.1, 0, 0.05);
+        winGroup.add(cR);
+
+        // Wooden Boards
+        const boardGeo = new THREE.BoxGeometry(2.2, 0.4, 0.1);
+        for (let i = -1.0; i <= 1.0; i += 0.6) {
+            const board = new THREE.Mesh(boardGeo, this.materials.wainscoting); // Use lighter/rougher wood
+            board.position.set(
+                (Math.random() - 0.5) * 0.1,
+                i + (Math.random() - 0.5) * 0.2,
+                0.15 + Math.random() * 0.05
+            );
+            board.rotation.z = (Math.random() - 0.5) * 0.1;
+            winGroup.add(board);
+        }
+
+        winGroup.position.set(x, y, z);
+        winGroup.rotation.y = rotationY;
+        this.scene.add(winGroup);
+    }
+
+    createLantern(x, y, z, color, intensity) {
+        const lanternGroup = new THREE.Group();
+
+        // Base
+        const baseGeo = new THREE.BoxGeometry(0.4, 0.1, 0.4);
+        const base = new THREE.Mesh(baseGeo, this.materials.metal);
+        lanternGroup.add(base);
+
+        // Glass housing
+        const glassGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.4, 8);
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0xffddaa,
+            emissive: color,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.8
+        });
+        const glass = new THREE.Mesh(glassGeo, glassMat);
+        glass.position.y = 0.25;
+        lanternGroup.add(glass);
+
+        // Top lid
+        const topGeo = new THREE.ConeGeometry(0.25, 0.3, 4);
+        const top = new THREE.Mesh(topGeo, this.materials.metal);
+        top.position.y = 0.6;
+        lanternGroup.add(top);
+
+        // Light
+        const light = new THREE.PointLight(color, intensity, 10);
+        light.position.y = 0.25;
+        lanternGroup.add(light);
+
+        lanternGroup.position.set(x, y, z);
+        this.scene.add(lanternGroup);
+
+        const hitBox = this.createBox(0.5, 0.8, 0.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.4, z));
+        return hitBox;
+    }
+
+    decorateVictorianDoor(doorMesh) {
+        const mat = this.materials.wood; // Detailed wood grain
+
+        // Panel offsets to prevent z-fighting (door is 0.5 thick, faces are at +/- 0.25)
+        const addPanelsForFace = (offsetX) => {
+            const pThickness = 0.05;
+
+            // Top Panel
+            const topGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
+            const top = new THREE.Mesh(topGeo, mat);
+            top.position.set(offsetX, 1.0, 0);
+
+            // Middle Panel
+            const midGeo = new THREE.BoxGeometry(pThickness, 1.3, 2.0);
+            const mid = new THREE.Mesh(midGeo, mat);
+            mid.position.set(offsetX, -0.1, 0);
+
+            // Bottom Panel
+            const botGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
+            const bot = new THREE.Mesh(botGeo, mat);
+            bot.position.set(offsetX, -1.2, 0);
+
+            // Brass Doorknob
+            const knobGeo = new THREE.SphereGeometry(0.08, 16, 16);
+            const knob = new THREE.Mesh(knobGeo, this.materials.metal);
+            const zOffset = (offsetX > 0) ? -1.0 : 1.0;
+            knob.position.set(offsetX > 0 ? offsetX + 0.05 : offsetX - 0.05, -0.1, zOffset);
+
+            doorMesh.add(top, mid, bot, knob);
+        };
+
+        addPanelsForFace(0.26); // Outside face
+        addPanelsForFace(-0.26); // Inside face
     }
 }

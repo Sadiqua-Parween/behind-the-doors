@@ -1,5 +1,6 @@
 export class UI {
-    constructor() {
+    constructor(audioManager) {
+        this.audioManager = audioManager;
         this.reticle = document.getElementById('reticle');
         this.prompt = document.getElementById('interaction-prompt');
         this.dialogueContainer = document.getElementById('dialogue-container');
@@ -23,6 +24,20 @@ export class UI {
                 } else {
                     // Next line
                     this.nextLine();
+                }
+            }
+        });
+
+        // Global keydown listener for Space and Enter mapping
+        window.addEventListener('keydown', (e) => {
+            if (this.isDialogueActive() && (e.code === 'Space' || e.code === 'Enter')) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+
+                if (this.isTyping) {
+                    this.finishTyping(); // Skip typing
+                } else {
+                    this.nextLine(); // Next line
                 }
             }
         });
@@ -83,6 +98,32 @@ export class UI {
         // Clear any existing typing interval
         if (this.typeInterval) clearInterval(this.typeInterval);
 
+        // Vocalize the current line using built-in Text-To-Speech
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); // Stop any previous speech
+
+            // Strip HTML tags and asterisk-wrapped sound effects
+            const cleanText = line.replace(/<[^>]*>?/gm, '').replace(/\*[^\*]*\*/g, '').trim();
+
+            if (cleanText.length > 0) {
+                this.utterance = new SpeechSynthesisUtterance(cleanText);
+
+                // Attempt to find a suitable voice (standard English preferred)
+                const voices = window.speechSynthesis.getVoices();
+                const voice = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'))
+                    || voices.find(v => v.name.includes('Alex'))
+                    || voices.find(v => v.lang === 'en-US');
+
+                if (voice) {
+                    this.utterance.voice = voice;
+                }
+
+                this.utterance.pitch = 1.3; // Higher pitch for stress/anxiety (younger)
+                this.utterance.rate = 1.0; // Pacing back to normal
+                window.speechSynthesis.speak(this.utterance);
+            }
+        }
+
         this.typeInterval = setInterval(() => {
             if (charIndex < line.length) {
                 // handle HTML like <br> or colored spans roughly
@@ -95,7 +136,11 @@ export class UI {
                     tag += '>';
                     this.dialogueText.innerHTML += tag;
                 } else {
-                    this.dialogueText.innerHTML += line[charIndex];
+                    const char = line[charIndex];
+                    this.dialogueText.innerHTML += char;
+                    if (this.audioManager && char !== ' ' && Math.random() > 0.3) {
+                        this.audioManager.playDialogueBlip();
+                    }
                     charIndex++;
                 }
             } else {
@@ -119,6 +164,9 @@ export class UI {
         this.dialogueContainer.classList.add('hidden');
         this.reticle.style.display = 'block';
         this.currentDialogue = [];
+
+        // Ensure voice cuts off when window closes
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     }
 
     // Inventory System

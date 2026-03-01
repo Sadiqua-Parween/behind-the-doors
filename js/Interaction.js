@@ -108,6 +108,15 @@ export class Interaction {
             case 'bed':
             case 'sofa':
             case 'wardrobe':
+            case 'table':
+            case 'cupboard':
+            case 'bookshelf':
+                // Animate drawers/doors opening if available
+                this.animateFurniture(object);
+            case 'table':
+            case 'cupboard':
+                // Animate the drawers or doors opening if available
+                this.animateFurniture(object);
                 if (object.userData.hasKey) {
                     if (!this.gameState.hasBlueKey) {
                         this.gameState.hasBlueKey = true;
@@ -155,6 +164,11 @@ export class Interaction {
                     object.userData.prompt = "Freedom";
                     const targetX = object.position.x - 1.5;
                     this.animateDoor(object, targetX);
+
+                    // Win Condition: Return to Main Page after 3 seconds
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3500);
                 } else {
                     this.ui.showDialogue([
                         "It's locked tight.",
@@ -202,5 +216,33 @@ export class Interaction {
             }
             // Need to update collider logically, for simplicity we might just move it out of the way
         }, 16);
+    }
+
+    animateFurniture(object) {
+        if (!object.userData.animatableParts) return;
+
+        // Prevent opening multiple times
+        if (object.userData.opened) return;
+        object.userData.opened = true;
+
+        if (object.userData.isDoubleDoor) {
+            // Cupboard - swing doors open
+            const doorL = object.userData.animatableParts[0];
+            const doorR = object.userData.animatableParts[1];
+
+            if (window.gsap) {
+                gsap.to(doorL.rotation, { y: Math.PI / 1.5, duration: 1.5, ease: "power2.out" });
+                gsap.to(doorR.rotation, { y: -Math.PI / 1.5, duration: 1.5, ease: "power2.out" });
+            }
+        } else {
+            // Table - slide drawers forward
+            const drawer1 = object.userData.animatableParts[0];
+            const drawer2 = object.userData.animatableParts[1];
+
+            if (window.gsap) {
+                gsap.to(drawer1.position, { z: drawer1.position.z + 0.6, duration: 0.8, ease: "back.out(1.2)" });
+                gsap.to(drawer2.position, { z: drawer2.position.z + 0.6, duration: 0.8, ease: "back.out(1.2)", delay: 0.15 });
+            }
+        }
     }
 }

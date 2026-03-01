@@ -3,6 +3,7 @@ import { Player } from './Player.js';
 import { Level } from './Level.js';
 import { Interaction } from './Interaction.js';
 import { UI } from './UI.js';
+import { AudioManager } from './AudioManager.js';
 
 class Game {
     constructor() {
@@ -33,8 +34,9 @@ class Game {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        // UI Manager
-        this.ui = new UI();
+        // UI & Audio Managers
+        this.audioManager = new AudioManager();
+        this.ui = new UI(this.audioManager);
 
         // Level Generation
         this.level = new Level(this.scene);
@@ -54,6 +56,7 @@ class Game {
 
         blocker.addEventListener('click', () => {
             if (!this.player.controls.isLocked) {
+                this.audioManager.init();
                 this.player.controls.lock();
             }
         });
