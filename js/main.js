@@ -122,5 +122,5 @@ class Game {
 
 // Ensure the page is fully loaded before starting
 window.onload = () => {
-    const game = new Game();
+    window.game = new Game();
 };

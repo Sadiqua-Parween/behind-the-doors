@@ -41,11 +41,40 @@
         <span class="blinking-cursor">_</span>
     </div>
 
-    <!-- Inventory / Notes -->
-    <div id="inventory-container">
-        <!-- populated dynamically -->
+    <!-- Countdown Timer -->
+    <div id="timer-container" class="hidden">
+        <span id="timer-text">30.00</span>
     </div>
 
+    <!-- Inventory / Found Items -->
+    <div id="inventory-container">
+        <!-- Items added dynamically -->
+    </div>
+
+    <!-- Keypad UI -->
+    <div id="keypad-container" class="hidden">
+        <div id="keypad-panel">
+            <h2>ENTER CODE</h2>
+            <input type="text" id="keypad-input" maxlength="4" autocomplete="off" readonly>
+            <div class="keypad-grid">
+                <button class="key-btn">1</button><button class="key-btn">2</button><button class="key-btn">3</button>
+                <button class="key-btn">4</button><button class="key-btn">5</button><button class="key-btn">6</button>
+                <button class="key-btn">7</button><button class="key-btn">8</button><button class="key-btn">9</button>
+                <button class="key-btn" id="key-clear">C</button><button class="key-btn">0</button><button
+                    class="key-btn" id="key-enter">E</button>
+            </div>
+            <p id="keypad-error" class="hidden">INCORRECT</p>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over" class="hidden">
+        <h1 class="blood-text">YOU DIED</h1>
+        <p>They found you in the dark...</p>
+        <button id="restart-btn" onclick="window.location.reload()">TRY AGAIN</button>
+    </div>
+
+    <!-- External Libs -->
     <!-- Import Map for Three.js -->
     <script type="importmap">
         {

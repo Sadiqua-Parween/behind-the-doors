@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Game</title>
+</head>
+<body>
+    <h1>Game Test Results</h1>
+    <div id="results"></div>
+    
+    <script>
+        // Test basic Three.js functionality
+        try {
+            // Test if Three.js loads
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/three@0.160.0/build/three.module.js';
+            script.onload = () => {
+                document.getElementById('results').innerHTML += '<p>✅ Three.js loads successfully</p>';
+                
+                // Test basic 3D rendering
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer();
+                renderer.setSize(800, 600);
+                document.body.appendChild(renderer.domElement);
+                
+                // Add a test cube
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                const cube = new THREE.Mesh(geometry, material);
+                scene.add(cube);
+                
+                renderer.render(scene, camera);
+                document.getElementById('results').innerHTML += '<p>✅ Basic 3D rendering works</p>';
+            };
+            script.onerror = () => {
+                document.getElementById('results').innerHTML += '<p>❌ Three.js failed to load</p>';
+            };
+            document.head.appendChild(script);
+            
+        } catch (error) {
+            document.getElementById('results').innerHTML += '<p>❌ Error: ' + error.message + '</p>';
+        }
+    </script>
+</body>
+</html>

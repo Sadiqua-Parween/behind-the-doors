@@ -98,32 +98,7 @@ export class UI {
         // Clear any existing typing interval
         if (this.typeInterval) clearInterval(this.typeInterval);
 
-        // Vocalize the current line using built-in Text-To-Speech
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel(); // Stop any previous speech
-
-            // Strip HTML tags and asterisk-wrapped sound effects
-            const cleanText = line.replace(/<[^>]*>?/gm, '').replace(/\*[^\*]*\*/g, '').trim();
-
-            if (cleanText.length > 0) {
-                this.utterance = new SpeechSynthesisUtterance(cleanText);
-
-                // Attempt to find a suitable voice (standard English preferred)
-                const voices = window.speechSynthesis.getVoices();
-                const voice = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'))
-                    || voices.find(v => v.name.includes('Alex'))
-                    || voices.find(v => v.lang === 'en-US');
-
-                if (voice) {
-                    this.utterance.voice = voice;
-                }
-
-                this.utterance.pitch = 1.3; // Higher pitch for stress/anxiety (younger)
-                this.utterance.rate = 1.0; // Pacing back to normal
-                window.speechSynthesis.speak(this.utterance);
-            }
-        }
-
+        // (Text-To-Speech has been removed per user request)
         this.typeInterval = setInterval(() => {
             if (charIndex < line.length) {
                 // handle HTML like <br> or colored spans roughly
@@ -180,6 +155,111 @@ export class UI {
         // Animate in
         if (window.gsap) {
             gsap.fromTo(item, { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.5 });
+        }
+    }
+
+    // Timer UI
+    showTimer() {
+        document.getElementById('timer-container').classList.remove('hidden');
+    }
+
+    updateTimer(secondsLeft) {
+        const timerContainer = document.getElementById('timer-container');
+        const timerText = document.getElementById('timer-text');
+
+        // Format to 2 decimal places
+        timerText.innerText = secondsLeft.toFixed(2);
+
+        if (secondsLeft <= 10.0 && !timerContainer.classList.contains('urgent')) {
+            timerContainer.classList.add('urgent');
+        }
+    }
+
+    hideTimer() {
+        document.getElementById('timer-container').classList.add('hidden');
+    }
+
+    // Game Over UI
+    showGameOver() {
+        this.hideTimer();
+        this.hideReticle();
+        document.getElementById('dialogue-container').classList.add('hidden');
+        document.getElementById('game-over').classList.remove('hidden');
+
+        // Disable pointer lock so they can click the button
+        document.exitPointerLock();
+    }
+
+    // Keypad UI
+    setupKeypad() {
+        this.keypadContainer = document.getElementById('keypad-container');
+        this.keypadInput = document.getElementById('keypad-input');
+        this.keypadError = document.getElementById('keypad-error');
+        this.expectedCode = "";
+        this.onKeypadSuccess = null;
+
+        const buttons = document.querySelectorAll('.key-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Prevent click passing through
+                e.preventDefault();
+                e.stopPropagation();
+
+                const val = e.target.innerText;
+                if (val === 'C') {
+                    this.keypadInput.value = "";
+                    this.keypadError.classList.add('hidden');
+                } else if (val === 'E') {
+                    this.submitKeypad();
+                } else {
+                    if (this.keypadInput.value.length < 4) {
+                        this.keypadInput.value += val;
+                        this.keypadError.classList.add('hidden');
+                    }
+                }
+            });
+        });
+
+        // Hide if clicking outside
+        this.keypadContainer.addEventListener('mousedown', (e) => {
+            if (e.target === this.keypadContainer) {
+                this.hideKeypad();
+            }
+        });
+    }
+
+    showKeypad(code, onSuccessCallback) {
+        if (!this.keypadContainer) this.setupKeypad();
+        this.expectedCode = code;
+        this.onKeypadSuccess = onSuccessCallback;
+
+        this.keypadInput.value = "";
+        this.keypadError.classList.add('hidden');
+        this.keypadContainer.classList.remove('hidden');
+        this.hideReticle();
+
+        // Unlock mouse so they can click the keypad
+        document.exitPointerLock();
+    }
+
+    hideKeypad() {
+        if (this.keypadContainer) {
+            this.keypadContainer.classList.add('hidden');
+        }
+        this.showReticle();
+    }
+
+    submitKeypad() {
+        if (this.keypadInput.value === this.expectedCode) {
+            this.hideKeypad();
+            if (this.onKeypadSuccess) this.onKeypadSuccess();
+        } else {
+            this.keypadError.classList.remove('hidden');
+            this.keypadInput.value = ""; // Clear on fail
+            // Restart CSS animation by re-triggering reflow
+            this.keypadError.style.animation = 'none';
+            this.keypadError.offsetHeight; /* trigger reflow */
+            this.keypadError.style.animation = null;
         }
     }
 }

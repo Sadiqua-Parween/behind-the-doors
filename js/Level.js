@@ -108,9 +108,33 @@ export class Level {
         this.exitDoor = new THREE.Mesh(doorGeometry, this.materials.wood);
         this.exitDoor.position.set(roomCenter + roomSize / 2, (wallHeight - 0.5) / 2, 0);
         this.decorateVictorianDoor(this.exitDoor);
-        this.exitDoor.userData = { id: 'exit_door_locked', interactable: true, prompt: "Locked Exit Door", dialogue: "It's locked tight. Is there a key in here?" };
+        this.exitDoor.userData = { id: 'exit_door_locked', interactable: true, prompt: "Inspect Heavy Door", dialogue: "It's bolted from the outside. No brute force will open this... I need to find the key before *they* return." };
         this.scene.add(this.exitDoor);
         this.colliders.push(this.exitDoor);
+
+        // --- ROOM 2: The Torture Room (X=40 to X=70) ---
+        const room2Length = 30;
+        const room2Width = 20;
+        const room2Center = 55; // 40 + 30/2
+
+        // Floor and Ceiling
+        this.createBox(room2Length, thickness, room2Width, this.materials.blood, new THREE.Vector3(room2Center, -thickness / 2, 0));
+        this.createBox(room2Length, thickness, room2Width, this.materials.ceiling, new THREE.Vector3(room2Center, wallHeight + thickness / 2, 0));
+
+        // North/South Walls
+        this.createBox(room2Length, wallHeight, thickness, this.materials.metal, new THREE.Vector3(room2Center, wallHeight / 2, -room2Width / 2));
+        this.createBox(room2Length, wallHeight, thickness, this.materials.metal, new THREE.Vector3(room2Center, wallHeight / 2, room2Width / 2));
+
+        // East Wall (Final Exit)
+        this.createBox(thickness, wallHeight, room2Width / 2 - 1.5, this.materials.metal, new THREE.Vector3(room2Center + room2Length / 2, wallHeight / 2, -room2Width / 4 - 0.75));
+        this.createBox(thickness, wallHeight, room2Width / 2 - 1.5, this.materials.metal, new THREE.Vector3(room2Center + room2Length / 2, wallHeight / 2, room2Width / 4 + 0.75));
+
+        // Final Exit Door
+        this.finalExitDoor = new THREE.Mesh(doorGeometry, this.materials.metal);
+        this.finalExitDoor.position.set(room2Center + room2Length / 2, (wallHeight - 0.5) / 2, 0);
+        this.finalExitDoor.userData = { id: 'final_exit_door', interactable: true, prompt: "Use Keypad", dialogue: "There's a heavy digital keypad on this door. I need a 4-digit code." };
+        this.scene.add(this.finalExitDoor);
+        this.colliders.push(this.finalExitDoor);
 
         // Room West Wall (Connects to Corridor, closing the gap)
         this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.greenWallpaper, new THREE.Vector3(corridorLength / 2, wallHeight / 2, -roomSize / 2 + (roomSize - corridorWidth) / 4));
@@ -225,7 +249,7 @@ export class Level {
         note1.position.set(0, 1.01, 2);
         note1.rotation.x = -Math.PI / 2;
         note1.rotation.z = Math.PI / 6;
-        note1.userData = { id: 'note_1', interactable: true, prompt: "Bloody Note", dialogue: "Subject seems to have escaped confinement..." };
+        note1.userData = { id: 'note_1', interactable: true, prompt: "Read Torn Page", dialogue: "<span style='color:red'>'They roam the dark... hiding in the walls. They only see you when you run.'</span>" };
         this.scene.add(note1);
 
         // Add brighter ceiling lights down the corridor, exactly 10 meters apart
@@ -241,32 +265,284 @@ export class Level {
         this.createLantern(23, 3.8, 9, 0xffaa55, 15.0);  // SW corner
         this.createLantern(40, 3.8, 9, 0xffaa55, 15.0);  // SE corner
 
-        // Determine random key location
-        const hidingSpots = ['table', 'cupboard'];
+        // Room 2 Lighting — bright enough to see everything, red-tinted horror atmosphere
+        // Main ceiling lights
+        this.createCeilingLight(55, 4, 0,  0xff2200, 40.0);  // Center — harsh red
+        this.createCeilingLight(47, 4, 0,  0xcc1100, 30.0);  // West
+        this.createCeilingLight(63, 4, 0,  0xcc1100, 30.0);  // East
+        this.createCeilingLight(47, 4, -7, 0xaa0a0a, 22.0);  // NW corner
+        this.createCeilingLight(63, 4, -7, 0xaa0a0a, 22.0);  // NE corner
+        this.createCeilingLight(47, 4,  7, 0xaa0a0a, 22.0);  // SW corner
+        this.createCeilingLight(63, 4,  7, 0xaa0a0a, 22.0);  // SE corner
+
+        // Dim warm fill lights low on the walls to kill pitch-black shadows
+        const fillLight1 = new THREE.PointLight(0xff6633, 2.5, 18);
+        fillLight1.position.set(50, 1.2, 0);
+        this.scene.add(fillLight1);
+        const fillLight2 = new THREE.PointLight(0xff6633, 2.5, 18);
+        fillLight2.position.set(60, 1.2, 0);
+        this.scene.add(fillLight2);
+
+        // ── Room 2: Blood Writing ──────────────────────────────────────────────
+        // Helper — creates a canvas texture panel of bloody handwriting
+        const makeBloodPanel = (lines, fontSize, canvasW, canvasH) => {
+            const c = document.createElement('canvas');
+            c.width = canvasW; c.height = canvasH;
+            const cx = c.getContext('2d');
+
+            // Faint dark background so text reads against the metal wall
+            cx.fillStyle = 'rgba(10,0,0,0.0)';
+            cx.fillRect(0, 0, canvasW, canvasH);
+
+            cx.textAlign = 'left';
+
+            lines.forEach(({ text, y, size, alpha, slant }) => {
+                cx.save();
+                cx.font = `bold ${size || fontSize}px Georgia, serif`;
+                cx.fillStyle = `rgba(${160 + Math.floor(Math.random()*40)}, ${Math.floor(Math.random()*8)}, ${Math.floor(Math.random()*8)}, ${alpha || 1.0})`;
+                cx.translate(60, y);
+                cx.rotate((slant || 0) * Math.PI / 180);
+                cx.fillText(text, 0, 0);
+                cx.restore();
+            });
+
+            // Blood drip streaks
+            for (let d = 0; d < 6; d++) {
+                const dx = 80 + Math.random() * (canvasW - 160);
+                const dy = 30 + Math.random() * (canvasH - 80);
+                const dLen = 40 + Math.random() * 120;
+                cx.beginPath();
+                cx.moveTo(dx, dy);
+                cx.bezierCurveTo(dx + (Math.random()-0.5)*20, dy + dLen*0.4,
+                                  dx + (Math.random()-0.5)*20, dy + dLen*0.7,
+                                  dx + (Math.random()-0.5)*10, dy + dLen);
+                cx.strokeStyle = `rgba(140,3,3,${0.4 + Math.random()*0.4})`;
+                cx.lineWidth = 3 + Math.random() * 5;
+                cx.stroke();
+            }
+
+            // Smear blobs
+            for (let s = 0; s < 4; s++) {
+                cx.beginPath();
+                cx.ellipse(Math.random()*canvasW, Math.random()*canvasH,
+                    20+Math.random()*35, 10+Math.random()*20,
+                    Math.random()*Math.PI, 0, Math.PI*2);
+                cx.fillStyle = `rgba(120,2,2,${0.2+Math.random()*0.3})`;
+                cx.fill();
+            }
+
+            return new THREE.CanvasTexture(c);
+        };
+
+        const bloodMat = (tex) => new THREE.MeshBasicMaterial({
+            map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide
+        });
+
+        // ── NORTH WALL — Entry message + her first moments ────────────────────
+        const northTex1 = makeBloodPanel([
+            { text: "THEY BROUGHT ME HERE ON DAY 3",      y: 80,  size: 52, slant: -1.5 },
+            { text: "I COULD NOT SCREAM.",                 y: 160, size: 44, slant:  0.8, alpha: 0.9 },
+            { text: "NO ONE WOULD HEAR.",                  y: 230, size: 44, slant: -0.5, alpha: 0.85 },
+        ], 48, 1024, 300);
+        const nw1 = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.6), bloodMat(northTex1));
+        nw1.position.set(50, 2.8, -9.85);
+        nw1.userData = { id: 'blood_north_1', interactable: true, prompt: "Read Blood Writing",
+            dialogue: [
+                "The handwriting is huge, desperate — scratched into the wall with something sharp, then filled with blood.",
+                "<span style='color:#cc0000'>'THEY BROUGHT ME HERE ON DAY 3. I COULD NOT SCREAM. NO ONE WOULD HEAR.'</span>",
+                "She was alive when she wrote this."
+            ]};
+        this.scene.add(nw1);
+
+        // ── NORTH WALL — What they did to her ────────────────────────────────
+        const northTex2 = makeBloodPanel([
+            { text: "THEY STRAPPED ME TO THE TABLE",       y: 75,  size: 48, slant: -2.0 },
+            { text: "FOR HOURS.",                          y: 150, size: 60, slant:  1.0, alpha: 0.95 },
+            { text: "i counted the ceiling tiles to stay sane", y: 220, size: 32, slant: -0.8, alpha: 0.7 },
+            { text: "there are 47.",                       y: 270, size: 32, slant:  0.5, alpha: 0.65 },
+        ], 44, 1024, 320);
+        const nw2 = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.8), bloodMat(northTex2));
+        nw2.position.set(60, 2.6, -9.85);
+        nw2.userData = { id: 'blood_north_2', interactable: true, prompt: "Read Blood Writing",
+            dialogue: [
+                "<span style='color:#cc0000'>'THEY STRAPPED ME TO THE TABLE FOR HOURS.'</span>",
+                "Her handwriting breaks apart here. The large letters give way to something smaller, more fragile.",
+                "<span style='color:#880000'>'i counted the ceiling tiles to stay sane. there are 47.'</span>",
+                "I look up. She's right."
+            ]};
+        this.scene.add(nw2);
+
+        // ── SOUTH WALL — The creature ─────────────────────────────────────────
+        const southTex1 = makeBloodPanel([
+            { text: "IT IS NOT HUMAN.",                    y: 80,  size: 56, slant:  1.8 },
+            { text: "IT HAS NO EYES.",                     y: 160, size: 56, slant: -1.2 },
+            { text: "BUT IT ALWAYS FINDS YOU.",            y: 240, size: 46, slant:  0.6, alpha: 0.9 },
+            { text: "IT SMELLS FEAR.",                     y: 310, size: 38, slant: -2.0, alpha: 0.8 },
+        ], 48, 1024, 360);
+        const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(9, 3.2), bloodMat(southTex1));
+        sw1.position.set(50, 2.5, 9.85);
+        sw1.rotation.y = Math.PI;
+        sw1.userData = { id: 'blood_south_1', interactable: true, prompt: "Read Blood Writing",
+            dialogue: [
+                "The letters on this wall are uneven — written in a frenzy.",
+                "<span style='color:#cc0000'>'IT IS NOT HUMAN. IT HAS NO EYES.'</span>",
+                "<span style='color:#cc0000'>'BUT IT ALWAYS FINDS YOU. IT SMELLS FEAR.'</span>",
+                "My hands are shaking."
+            ]};
+        this.scene.add(sw1);
+
+        // ── SOUTH WALL — Her final message ───────────────────────────────────
+        const southTex2 = makeBloodPanel([
+            { text: "if you are reading this",             y: 70,  size: 36, slant: -1.0, alpha: 0.8 },
+            { text: "you are already too late",            y: 130, size: 36, slant:  1.5, alpha: 0.75 },
+            { text: "— OR —",                              y: 195, size: 30, slant:  0.0, alpha: 0.6 },
+            { text: "RUN.",                                y: 290, size: 88, slant: -3.0, alpha: 1.0 },
+            { text: "DO NOT STOP.",                        y: 370, size: 42, slant:  2.0, alpha: 0.9 },
+        ], 44, 1024, 420);
+        const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(9, 3.6), bloodMat(southTex2));
+        sw2.position.set(61, 2.4, 9.85);
+        sw2.rotation.y = Math.PI;
+        sw2.userData = { id: 'blood_south_2', interactable: true, prompt: "Read Blood Writing",
+            dialogue: [
+                "<span style='color:#880000'>'if you are reading this... you are already too late.'</span>",
+                "And then, in letters so large they take up half the wall —",
+                "<span style='color:#ff0000; font-size:2em; font-weight:bold'>RUN. DO NOT STOP.</span>",
+                "...",
+                "I need to get that code and get out. NOW."
+            ]};
+        this.scene.add(sw2);
+
+        // ── WEST WALL (entrance wall) — final scrawl near the floor ──────────
+        const westTex = makeBloodPanel([
+            { text: "i hear it coming",                    y: 60,  size: 28, slant: -1.5, alpha: 0.65 },
+            { text: "scratching",                          y: 105, size: 28, slant:  2.0, alpha: 0.55 },
+            { text: "always scratching",                   y: 148, size: 28, slant: -0.5, alpha: 0.5  },
+            { text: "— M",                                 y: 200, size: 22, slant:  0.0, alpha: 0.45 },
+        ], 28, 512, 240);
+        const ww = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 1.6), bloodMat(westTex));
+        ww.position.set(40.3, 0.9, 2);
+        ww.rotation.y = Math.PI / 2;
+        ww.userData = { id: 'blood_west', interactable: true, prompt: "Read Scrawl on Wall",
+            dialogue: [
+                "Down near the floor, barely visible — written in a trembling hand.",
+                "<span style='color:#880000'>'i hear it coming... scratching... always scratching'</span>",
+                "It ends with a single initial.",
+                "<span style='color:#660000'>'— M'</span>",
+                "Her name started with M. She was here. She didn't make it out."
+            ]};
+        this.scene.add(ww);
+
+        // Room 2: Iron Cage (The Code Location)
+        const cageGroup = new THREE.Group();
+        const baseGeo = new THREE.BoxGeometry(3, 0.2, 3);
+        const cageBase = new THREE.Mesh(baseGeo, this.materials.metal);
+        cageGroup.add(cageBase);
+
+        // Cage Bars
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                if (i === 0 || i === 3 || j === 0 || j === 3) {
+                    const barGeo = new THREE.CylinderGeometry(0.05, 0.05, 4);
+                    const bar = new THREE.Mesh(barGeo, this.materials.metal);
+                    bar.position.set(-1.5 + i * 1.0, 2, -1.5 + j * 1.0);
+                    cageGroup.add(bar);
+                }
+            }
+        }
+        cageGroup.position.set(65, 0.1, 7);
+        this.room2Password = "1984"; // The 4 digit code
+        cageGroup.userData = { id: 'iron_cage', interactable: true, prompt: "Inspect Iron Cage", dialogue: "There's a decapitated corpse in here... and a code scratched into the metal floor: <span style='color:red; font-size: 1.5em;'>" + this.room2Password + "</span>" };
+        this.scene.add(cageGroup);
+        const cageHit = this.createBox(3.4, 4.4, 3.4, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(65, 2.2, 7));
+        cageHit.userData = cageGroup.userData;
+
+        // Room 2: Metal Torture Table
+        const mTableGroup = new THREE.Group();
+        const mTableTop = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 2), this.materials.metal);
+        mTableTop.position.y = 1.3;
+        const mLegGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.3);
+        const mLeg1 = new THREE.Mesh(mLegGeo, this.materials.metal); mLeg1.position.set(-1.8, 0.65, -0.8);
+        const mLeg2 = new THREE.Mesh(mLegGeo, this.materials.metal); mLeg2.position.set(1.8, 0.65, -0.8);
+        const mLeg3 = new THREE.Mesh(mLegGeo, this.materials.metal); mLeg3.position.set(-1.8, 0.65, 0.8);
+        const mLeg4 = new THREE.Mesh(mLegGeo, this.materials.metal); mLeg4.position.set(1.8, 0.65, 0.8);
+        mTableGroup.add(mTableTop, mLeg1, mLeg2, mLeg3, mLeg4);
+        mTableGroup.position.set(55, 0, 0);
+        mTableGroup.userData = { id: 'torture_table', interactable: true, prompt: "Inspect Metal Table", dialogue: "It's covered in dried blood and rusty surgical tools. I need to get out of here right now." };
+        this.scene.add(mTableGroup);
+        // More precise collision box
+        const mTableHit = this.createBox(4.1, 1.4, 2.1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(55, 0.7, 0));
+        mTableHit.userData = mTableGroup.userData;
+
+        // Determine random key location (For Room 1)
+        const hidingSpots = ['table', 'cupboard', 'wardrobe', 'desk', 'sidecabinet', 'bureau'];
         this.keyLocation = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
         console.log("Key hidden in:", this.keyLocation); // For debugging
 
         // Add Escape Room Furniture
 
+        // North Wall: Wardrobe (NW), Writing Bureau (NE corner area), Victorian Desk (angled NE)
+        const wardrobe = this.createWardrobe(24, 0, -9, 0);
+        Object.assign(wardrobe.userData, { id: 'wardrobe', interactable: true, prompt: "Search Wardrobe", hasKey: this.keyLocation === 'wardrobe' });
+        this.colliders.push(wardrobe);
+
+        const bureau = this.createWritingBureau(33, 0, -9, 0);
+        Object.assign(bureau.userData, { id: 'bureau', interactable: true, prompt: "Search Writing Bureau", hasKey: this.keyLocation === 'bureau' });
+        this.colliders.push(bureau);
+
+        const vicDesk = this.createVictorianDesk(38, 0, -7, -Math.PI / 6);
+        Object.assign(vicDesk.userData, { id: 'desk', interactable: true, prompt: "Search Desk Drawer", hasKey: this.keyLocation === 'desk' });
+        this.colliders.push(vicDesk);
+
         // Victorian Red Carpet
-        const carpetGeo = new THREE.BoxGeometry(12, 0.05, 10);
-        const carpetMat = new THREE.MeshStandardMaterial({ color: 0x660000, roughness: 0.9, bumpMap: this.resources.textures.wood, bumpScale: 0.02 }); // Simple pattern
+        const carpetGeo = new THREE.BoxGeometry(14, 0.05, 12);
+        const carpetMat = new THREE.MeshStandardMaterial({ color: 0x660000, roughness: 0.9 });
         const carpet = new THREE.Mesh(carpetGeo, carpetMat);
-        carpet.position.set(roomCenter, 0.025, 0); // Center of room, barely above floor
+        carpet.position.set(30, 0.025, 0);
         this.scene.add(carpet);
 
+        // Center of Room: Small Table with a Diary
+        const centerTableGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 16);
+        const centerTableMat = this.materials.wood;
+        const centerTableTop = new THREE.Mesh(centerTableGeo, centerTableMat);
+        centerTableTop.position.set(30, 1.2, 0);
+        const centerTableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.2, 8), centerTableMat);
+        centerTableLeg.position.set(30, 0.6, 0);
+        const centerTableBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1, 16), centerTableMat);
+        centerTableBase.position.set(30, 0.05, 0);
+        this.scene.add(centerTableTop, centerTableLeg, centerTableBase);
+
+        const ctHitBox = this.createBox(2.4, 1.3, 2.4, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(30, 0.65, 0));
+        this.colliders.push(ctHitBox);
+
+        // Diary on the Center Table
+        const diaryGeo = new THREE.BoxGeometry(0.6, 0.05, 0.8);
+        const diaryMat = new THREE.MeshStandardMaterial({ color: 0x331111, roughness: 0.9 });
+        const diary = new THREE.Mesh(diaryGeo, diaryMat);
+        diary.position.set(30, 1.25, 0.3);
+        diary.rotation.y = Math.PI / 6;
+        diary.userData = { id: 'diary', interactable: true, prompt: "Read Leather Diary" };
+        this.scene.add(diary);
+
         // NW Corner: Small Table with Drawers
-        const table = this.createCornerTable(23, 0, -8, 0);
-        table.userData = { id: 'table', interactable: true, prompt: "Search Drawers", hasKey: this.keyLocation === 'table' };
+        const table = this.createCornerTable(22, 0, -7, 0);
+        Object.assign(table.userData, { id: 'table', interactable: true, prompt: "Search Drawers", hasKey: this.keyLocation === 'table' });
         this.colliders.push(table);
 
-        // South Wall: Aesthetic Cupboard and Bookshelf
+        // Chaise longue — center-west area, facing east
+        const chaise = this.createChaiseLongue(26, 0, 3, Math.PI / 2);
+        this.colliders.push(chaise);
+
+        // South Wall: Cupboard (center-south), Side Cabinet (SE), Bookshelf (SW)
         const cupboard = this.createAestheticCupboard(30, 0, 9, Math.PI);
-        cupboard.userData = { id: 'cupboard', interactable: true, prompt: "Search Cupboard", hasKey: this.keyLocation === 'cupboard' };
+        Object.assign(cupboard.userData, { id: 'cupboard', interactable: true, prompt: "Search Cupboard", hasKey: this.keyLocation === 'cupboard' });
         this.colliders.push(cupboard);
 
+        const sideCabinet = this.createSideCabinet(37, 0, 9, Math.PI);
+        Object.assign(sideCabinet.userData, { id: 'sidecabinet', interactable: true, prompt: "Search Side Cabinet", hasKey: this.keyLocation === 'sidecabinet' });
+        this.colliders.push(sideCabinet);
+
         const bookshelf = this.createVictorianBookshelf(23, 0, 9, Math.PI);
-        bookshelf.userData = { id: 'bookshelf', interactable: true, prompt: "Search Bookshelf", hasKey: false };
+        Object.assign(bookshelf.userData, { id: 'bookshelf', interactable: true, prompt: "Search Bookshelf", hasKey: false });
         this.colliders.push(bookshelf);
 
         // East Wall (Flanking the door): Boarded Windows
@@ -545,17 +821,180 @@ export class Level {
 
     createWardrobe(x, y, z, rotationY) {
         const dropGroup = new THREE.Group();
+        const W = 3.0, H = 5.0, D = 1.5; // width, height, depth
+        const t = 0.08; // panel thickness
 
-        const bodyGeo = new THREE.BoxGeometry(3, 5, 1.5);
-        const body = new THREE.Mesh(bodyGeo, this.materials.wardrobeWood);
-        body.position.y = 2.5;
-        dropGroup.add(body);
+        // --- Outer shell (5 sides, open front) ---
+        // Back panel
+        const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, t), this.materials.wardrobeWood);
+        back.position.set(0, H / 2, -D / 2 + t / 2);
+        dropGroup.add(back);
+        // Top panel
+        const top = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wardrobeWood);
+        top.position.set(0, H - t / 2, 0);
+        dropGroup.add(top);
+        // Bottom panel
+        const bottom = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wardrobeWood);
+        bottom.position.set(0, t / 2, 0);
+        dropGroup.add(bottom);
+        // Left side panel
+        const sideL = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wardrobeWood);
+        sideL.position.set(-W / 2 + t / 2, H / 2, 0);
+        dropGroup.add(sideL);
+        // Right side panel
+        const sideR = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wardrobeWood);
+        sideR.position.set(W / 2 - t / 2, H / 2, 0);
+        dropGroup.add(sideR);
+
+        // Crown moulding on top
+        const crownGeo = new THREE.BoxGeometry(W + 0.1, 0.15, D + 0.1);
+        const crown = new THREE.Mesh(crownGeo, this.materials.wainscoting);
+        crown.position.set(0, H + 0.07, 0);
+        dropGroup.add(crown);
+
+        // Base plinth
+        const plinthGeo = new THREE.BoxGeometry(W + 0.1, 0.18, D + 0.1);
+        const plinth = new THREE.Mesh(plinthGeo, this.materials.wainscoting);
+        plinth.position.set(0, 0.09, 0);
+        dropGroup.add(plinth);
+
+        // --- Interior ---
+        const interiorMat = new THREE.MeshStandardMaterial({ color: 0x1a0d06, roughness: 1.0 });
+
+        // Interior back wall
+        const intBack = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, H - t * 2, 0.02), interiorMat);
+        intBack.position.set(0, H / 2, -D / 2 + t + 0.01);
+        dropGroup.add(intBack);
+
+        // Middle shelf (splits hanging area from lower storage)
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, t, D - t), this.materials.wardrobeWood);
+        shelf.position.set(0, H * 0.45, 0);
+        dropGroup.add(shelf);
+
+        // Hanging rod above the shelf
+        const rodGeo = new THREE.CylinderGeometry(0.025, 0.025, W - t * 2, 8);
+        const rodMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.9, roughness: 0.2 });
+        const rod = new THREE.Mesh(rodGeo, rodMat);
+        rod.rotation.z = Math.PI / 2;
+        rod.position.set(0, H * 0.45 + 0.35, -D / 2 + t + 0.25);
+        dropGroup.add(rod);
+
+        // A few hanging clothes (dark fabric rectangles)
+        const clothMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1.0, side: THREE.DoubleSide });
+        const clothPositions = [-0.9, -0.3, 0.3, 0.9];
+        clothPositions.forEach(cx => {
+            const clothGeo = new THREE.PlaneGeometry(0.35, 0.9);
+            const cloth = new THREE.Mesh(clothGeo, clothMat);
+            cloth.position.set(cx, H * 0.45 + 0.35 - 0.5, -D / 2 + t + 0.28);
+            dropGroup.add(cloth);
+        });
+
+        // Lower storage box
+        const storageGeo = new THREE.BoxGeometry(W - t * 2 - 0.1, 0.35, D - t - 0.1);
+        const storage = new THREE.Mesh(storageGeo, this.materials.wainscoting);
+        storage.position.set(0, t + 0.18, 0);
+        dropGroup.add(storage);
+
+        // --- Doors ---
+        // Each door pivot is at its hinge edge (x = ±W/2 inside the group)
+        // Door mesh is offset +half-width from pivot so it swings correctly
+
+        const doorW = W / 2 - t; // each door covers half the opening minus gap
+        const doorH = H - t * 2 - 0.02;
+        const doorD = 0.06;
+
+        const makeDoor = (side) => {
+            const dGroup = new THREE.Group();
+
+            // Door panel
+            const dMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(doorW, doorH, doorD),
+                this.materials.wardrobeWood
+            );
+            dMesh.position.x = side * doorW / 2; // offset mesh from hinge pivot
+            dGroup.add(dMesh);
+
+            // Raised panel detail (inner rectangle inset)
+            const panelInset = new THREE.MeshStandardMaterial({ color: 0x2a1208, roughness: 0.9 });
+            const panelTop = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.75, doorH * 0.42, 0.02), panelInset);
+            panelTop.position.set(side * doorW / 2, doorH * 0.2, doorD / 2 + 0.01);
+            dGroup.add(panelTop);
+            const panelBot = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.75, doorH * 0.42, 0.02), panelInset);
+            panelBot.position.set(side * doorW / 2, -doorH * 0.2, doorD / 2 + 0.01);
+            dGroup.add(panelBot);
+
+            // Handle — placed near the inner edge of each door
+            const handleGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.22, 8);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, metalness: 0.9, roughness: 0.2 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.rotation.x = Math.PI / 2;
+            // inner edge of door = side * (doorW - small gap from center)
+            const handleX = side * (doorW - 0.12);
+            handle.position.set(handleX, 0, doorD / 2 + 0.04);
+            dGroup.add(handle);
+
+            // Handle back plate
+            const plateMat = new THREE.MeshStandardMaterial({ color: 0x8b6914, metalness: 0.8, roughness: 0.3 });
+            const plate = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.3, 0.02), plateMat);
+            plate.position.set(handleX, 0, doorD / 2 + 0.02);
+            dGroup.add(plate);
+
+            return dGroup;
+        };
+
+        // Left door: hinge at x = -W/2 + t, swings outward (negative Y rotation)
+        const doorL = makeDoor(1);
+        doorL.position.set(-W / 2 + t, H / 2, D / 2);
+        dropGroup.add(doorL);
+
+        // Right door: hinge at x = +W/2 - t, swings outward (positive Y rotation)
+        const doorR = makeDoor(-1);
+        doorR.position.set(W / 2 - t, H / 2, D / 2);
+        dropGroup.add(doorR);
 
         dropGroup.position.set(x, y, z);
         dropGroup.rotation.y = rotationY;
         this.scene.add(dropGroup);
 
-        const hitBox = this.createBox(3, 5, 1.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.5, z));
+        const hitBox = this.createBox(W + 0.2, H + 0.3, D + 0.2, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + H / 2, z));
+        hitBox.userData.animatableParts = [doorL, doorR];
+        hitBox.userData.isDoubleDoor = true;
+        return hitBox;
+    }
+
+    createVictorianDesk(x, y, z, rotationY) {
+        const deskGroup = new THREE.Group();
+
+        // Thick Tabletop
+        const topGeo = new THREE.BoxGeometry(3.5, 0.3, 1.8);
+        const top = new THREE.Mesh(topGeo, this.materials.wood);
+        top.position.y = 1.6;
+        deskGroup.add(top);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.3, 1.6, 0.3);
+        const l1 = new THREE.Mesh(legGeo, this.materials.wainscoting); l1.position.set(-1.5, 0.8, -0.7);
+        const l2 = new THREE.Mesh(legGeo, this.materials.wainscoting); l2.position.set(1.5, 0.8, -0.7);
+        const l3 = new THREE.Mesh(legGeo, this.materials.wainscoting); l3.position.set(-1.5, 0.8, 0.7);
+        const l4 = new THREE.Mesh(legGeo, this.materials.wainscoting); l4.position.set(1.5, 0.8, 0.7);
+        deskGroup.add(l1, l2, l3, l4);
+
+        // Huge Central Drawer
+        const drawerGroup = new THREE.Group();
+        const drawerGeo = new THREE.BoxGeometry(2.6, 0.4, 1.4);
+        const dBody = new THREE.Mesh(drawerGeo, this.materials.wainscoting);
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.05), this.materials.metal);
+        handle.position.z = 0.72;
+        drawerGroup.add(dBody, handle);
+        drawerGroup.position.set(0, 1.25, 0); // Directly under center of top
+        deskGroup.add(drawerGroup);
+
+        deskGroup.position.set(x, y, z);
+        deskGroup.rotation.y = rotationY;
+        this.scene.add(deskGroup);
+
+        const hitBox = this.createBox(3.6, 1.8, 1.9, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.9, z));
+        hitBox.userData.animatableParts = [drawerGroup, drawerGroup]; // Slide single drawer
         return hitBox;
     }
 
@@ -606,12 +1045,70 @@ export class Level {
             this.colliders.push(this.trapDoor);
             this.trapDoor.userData = { id: 'trap_door_locked', interactable: true, prompt: "Locked Trapdoor", dialogue: "It slammed shut violently! There's no door handle inside." };
 
+            // Initialize Timer
+                this.countdownActive = true;
+                this.timeLeft = 30.0;
+                this.lastTime = performance.now();
+                player.ui.showTimer();
+
             // Force dialogue
             player.ui.showDialogue([
                 "<span style='color:red; font-size: 2em'>*SLAM*</span>",
                 "The door just slammed shut behind me!",
-                "I'm trapped... I need to find another way out of here."
+                "I hear something scraping its claws in the darkness... I don't have much time."
             ]);
+        }
+
+        // Trigger Room 2 door slam
+        if (!this.room2TrapTriggered && player.camera.position.x > 45) {
+            this.room2TrapTriggered = true;
+
+            // Slam the exit door back to z=0, blocking the passage
+            if (window.gsap) {
+                gsap.to(this.exitDoor.position, { z: 0, duration: 0.15, ease: "power4.in" });
+            } else {
+                this.exitDoor.position.z = 0;
+            }
+
+            // Re-enable collision and make it locked again
+            this.colliders.push(this.exitDoor);
+            this.exitDoor.userData = { id: 'exit_door_trapped', interactable: true, prompt: "Locked Door", dialogue: "It's bolted tight! I'm trapped again!" };
+
+            // Force dialogue — no timer in Room 2
+            player.ui.showDialogue([
+                "<span style='color:red; font-size: 2em'>*SLAM*</span>",
+                "No! It locked me in!",
+                "This room... it's a slaughterhouse. I need to find the code and get through that final door FAST."
+            ]);
+        }
+
+        // Handle Countdown
+        if (this.countdownActive && !this.gameOver) {
+            const now = performance.now();
+            const delta = (now - this.lastTime) / 1000;
+            this.lastTime = now;
+
+            // Only decrement if not currently reading dialogue
+            if (!player.ui.isDialogueActive() && !player.ui.isTyping) {
+                this.timeLeft -= delta;
+                player.ui.updateTimer(Math.max(0, this.timeLeft));
+
+                if (this.timeLeft <= 0) {
+                    this.timeLeft = 0;
+                    this.countdownActive = false;
+                    this.gameOver = true;
+
+                    // Turn off all lights
+                    this.scene.traverse((child) => {
+                        if (child.isLight) {
+                            child.intensity = 0;
+                        }
+                    });
+
+                    // Display Game Over Screen
+                    player.ui.showGameOver();
+                }
+            }
         }
     }
 
@@ -674,45 +1171,339 @@ export class Level {
 
     createAestheticCupboard(x, y, z, rotationY) {
         const cbGroup = new THREE.Group();
+        const W = 3.6, H = 2.2, D = 1.0;
+        const t = 0.07;
 
-        // Main body frame (hollowed out front, scaled down)
-        const frameGeo = new THREE.BoxGeometry(3.6, 2.0, 1.0);
-        const frame = new THREE.Mesh(frameGeo, this.materials.wood);
-        frame.position.y = 1.0;
-        frame.position.z = -0.05;
-        cbGroup.add(frame);
+        // --- Shell (5 sides, open front) ---
+        const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, t), this.materials.wood);
+        back.position.set(0, H / 2, -D / 2 + t / 2);
+        cbGroup.add(back);
 
-        // Cupboard Doors
-        const doorGeo = new THREE.BoxGeometry(1.7, 1.9, 0.1);
-        const handleGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
+        const top = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wood);
+        top.position.set(0, H - t / 2, 0);
+        cbGroup.add(top);
 
-        // Left Door (hinge on left)
-        const doorL = new THREE.Group();
-        const meshL = new THREE.Mesh(doorGeo, this.materials.wainscoting);
-        meshL.position.x = 0.85; // Shift mesh right from hinge
-        const h1 = new THREE.Mesh(handleGeo, this.materials.metal);
-        h1.position.set(1.5, 0, 0.1); // Handle near right edge
-        doorL.add(meshL, h1);
-        doorL.position.set(-1.75, 1.0, 0.45); // Hinge position
+        const btm = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wood);
+        btm.position.set(0, t / 2, 0);
+        cbGroup.add(btm);
+
+        const sideL = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wood);
+        sideL.position.set(-W / 2 + t / 2, H / 2, 0);
+        cbGroup.add(sideL);
+
+        const sideR = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wood);
+        sideR.position.set(W / 2 - t / 2, H / 2, 0);
+        cbGroup.add(sideR);
+
+        // Crown moulding
+        const crown = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.12, D + 0.08), this.materials.wainscoting);
+        crown.position.set(0, H + 0.06, 0);
+        cbGroup.add(crown);
+
+        // Base plinth
+        const plinth = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.15, D + 0.08), this.materials.wainscoting);
+        plinth.position.set(0, 0.075, 0);
+        cbGroup.add(plinth);
+
+        // --- Interior ---
+        const intMat = new THREE.MeshStandardMaterial({ color: 0x1a0d06, roughness: 1.0 });
+        const intBack = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, H - t * 2, 0.02), intMat);
+        intBack.position.set(0, H / 2, -D / 2 + t + 0.01);
+        cbGroup.add(intBack);
+
+        // Middle shelf
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, t, D - t), this.materials.wainscoting);
+        shelf.position.set(0, H * 0.5, 0);
+        cbGroup.add(shelf);
+
+        // A few items on the shelf — dusty bottles
+        const bottleMat = new THREE.MeshStandardMaterial({ color: 0x1a3322, roughness: 0.3, metalness: 0.1, transparent: true, opacity: 0.75 });
+        [-1.1, -0.5, 0.2, 0.9].forEach(bx => {
+            const bh = 0.25 + Math.random() * 0.15;
+            const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, bh, 8), bottleMat);
+            bottle.position.set(bx, H * 0.5 + t + bh / 2, -D / 2 + t + 0.12);
+            cbGroup.add(bottle);
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.05, 0.1, 8), bottleMat);
+            neck.position.set(bx, H * 0.5 + t + bh + 0.04, -D / 2 + t + 0.12);
+            cbGroup.add(neck);
+        });
+
+        // --- Doors (hinge pivot at outer edge) ---
+        const doorW = W / 2 - t;
+        const doorH = H - t * 2 - 0.02;
+        const doorD = 0.06;
+
+        const makeDoor = (side) => {
+            const dGroup = new THREE.Group();
+
+            const dMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, doorD), this.materials.wainscoting);
+            dMesh.position.x = side * doorW / 2;
+            dGroup.add(dMesh);
+
+            // Raised panel inset
+            const panelMat = new THREE.MeshStandardMaterial({ color: 0x2a1208, roughness: 0.9 });
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.72, doorH * 0.78, 0.02), panelMat);
+            panel.position.set(side * doorW / 2, 0, doorD / 2 + 0.01);
+            dGroup.add(panel);
+
+            // Brass knob handle
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, metalness: 0.9, roughness: 0.2 });
+            const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), handleMat);
+            knob.position.set(side * (doorW - 0.14), 0, doorD / 2 + 0.05);
+            dGroup.add(knob);
+
+            return dGroup;
+        };
+
+        const doorL = makeDoor(1);
+        doorL.position.set(-W / 2 + t, H / 2, D / 2);
         cbGroup.add(doorL);
 
-        // Right Door (hinge on right)
-        const doorR = new THREE.Group();
-        const meshR = new THREE.Mesh(doorGeo, this.materials.wainscoting);
-        meshR.position.x = -0.85; // Shift mesh left from hinge
-        const h2 = new THREE.Mesh(handleGeo, this.materials.metal);
-        h2.position.set(-1.5, 0, 0.1); // Handle near left edge
-        doorR.add(meshR, h2);
-        doorR.position.set(1.75, 1.0, 0.45); // Hinge position
+        const doorR = makeDoor(-1);
+        doorR.position.set(W / 2 - t, H / 2, D / 2);
         cbGroup.add(doorR);
 
         cbGroup.position.set(x, y, z);
         cbGroup.rotation.y = rotationY;
         this.scene.add(cbGroup);
 
-        const hitBox = this.createBox(3.8, 2.1, 1.1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 1.0, z));
+        const hitBox = this.createBox(W + 0.2, H + 0.2, D + 0.15, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + H / 2, z));
         hitBox.userData.animatableParts = [doorL, doorR];
         hitBox.userData.isDoubleDoor = true;
+        return hitBox;
+    }
+
+    createSideCabinet(x, y, z, rotationY) {
+        const cbGroup = new THREE.Group();
+        const W = 1.4, H = 2.8, D = 0.9;
+        const t = 0.07;
+
+        // Shell
+        const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, t), this.materials.wainscoting);
+        back.position.set(0, H / 2, -D / 2 + t / 2);
+        cbGroup.add(back);
+        const top = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wainscoting);
+        top.position.set(0, H - t / 2, 0);
+        cbGroup.add(top);
+        const btm = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), this.materials.wainscoting);
+        btm.position.set(0, t / 2, 0);
+        cbGroup.add(btm);
+        const sL = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wainscoting);
+        sL.position.set(-W / 2 + t / 2, H / 2, 0);
+        cbGroup.add(sL);
+        const sR = new THREE.Mesh(new THREE.BoxGeometry(t, H, D), this.materials.wainscoting);
+        sR.position.set(W / 2 - t / 2, H / 2, 0);
+        cbGroup.add(sR);
+
+        // Crown & plinth
+        const crown = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, 0.1, D + 0.06), this.materials.wood);
+        crown.position.set(0, H + 0.05, 0);
+        cbGroup.add(crown);
+        const plinth = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, 0.12, D + 0.06), this.materials.wood);
+        plinth.position.set(0, 0.06, 0);
+        cbGroup.add(plinth);
+
+        // Interior back
+        const intMat = new THREE.MeshStandardMaterial({ color: 0x120805, roughness: 1.0 });
+        const intBack = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, H - t * 2, 0.02), intMat);
+        intBack.position.set(0, H / 2, -D / 2 + t + 0.01);
+        cbGroup.add(intBack);
+
+        // Two interior shelves
+        [H * 0.35, H * 0.65].forEach(sy => {
+            const shelf = new THREE.Mesh(new THREE.BoxGeometry(W - t * 2, t, D - t), this.materials.wood);
+            shelf.position.set(0, sy, 0);
+            cbGroup.add(shelf);
+        });
+
+        // Single door (full height, hinge on left)
+        const doorW = W - t * 2;
+        const doorH = H - t * 2 - 0.02;
+        const dGroup = new THREE.Group();
+
+        const dMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.06), this.materials.wainscoting);
+        dMesh.position.x = doorW / 2;
+        dGroup.add(dMesh);
+
+        // Two raised panels
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e0e05, roughness: 0.9 });
+        [-doorH * 0.22, doorH * 0.22].forEach(py => {
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.7, doorH * 0.38, 0.02), panelMat);
+            panel.position.set(doorW / 2, py, 0.04);
+            dGroup.add(panel);
+        });
+
+        // Brass knob
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, metalness: 0.9, roughness: 0.2 });
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), handleMat);
+        knob.position.set(doorW - 0.1, 0, 0.08);
+        dGroup.add(knob);
+
+        dGroup.position.set(-W / 2 + t, H / 2, D / 2);
+        cbGroup.add(dGroup);
+
+        cbGroup.position.set(x, y, z);
+        cbGroup.rotation.y = rotationY;
+        this.scene.add(cbGroup);
+
+        // Single door uses animatableParts[0] = animatableParts[1] (same ref, opens once)
+        const hitBox = this.createBox(W + 0.15, H + 0.15, D + 0.12, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + H / 2, z));
+        hitBox.userData.animatableParts = [dGroup, dGroup];
+        hitBox.userData.isDoubleDoor = false;
+        hitBox.userData.isSingleDoor = true;
+        return hitBox;
+    }
+
+    createWritingBureau(x, y, z, rotationY) {
+        const bGroup = new THREE.Group();
+
+        // Main body — tall upper cabinet + lower desk
+        const bodyW = 2.6, bodyH = 3.8, bodyD = 0.85;
+        const t = 0.07;
+
+        // Lower desk surface
+        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(bodyW, t, bodyD), this.materials.wood);
+        deskTop.position.set(0, 1.5, 0);
+        bGroup.add(deskTop);
+
+        // Desk legs
+        const legGeo = new THREE.BoxGeometry(0.12, 1.5, 0.12);
+        [[-bodyW / 2 + 0.1, -bodyD / 2 + 0.1], [-bodyW / 2 + 0.1, bodyD / 2 - 0.1],
+         [bodyW / 2 - 0.1, -bodyD / 2 + 0.1], [bodyW / 2 - 0.1, bodyD / 2 - 0.1]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(legGeo, this.materials.wainscoting);
+            leg.position.set(lx, 0.75, lz);
+            bGroup.add(leg);
+        });
+
+        // Upper cabinet shell (sits on desk)
+        const ucW = bodyW, ucH = bodyH - 1.5 - t, ucD = bodyD;
+        const ucBack = new THREE.Mesh(new THREE.BoxGeometry(ucW, ucH, t), this.materials.wood);
+        ucBack.position.set(0, 1.5 + t + ucH / 2, -ucD / 2 + t / 2);
+        bGroup.add(ucBack);
+        const ucTop = new THREE.Mesh(new THREE.BoxGeometry(ucW, t, ucD), this.materials.wood);
+        ucTop.position.set(0, 1.5 + t + ucH - t / 2, 0);
+        bGroup.add(ucTop);
+        const ucSL = new THREE.Mesh(new THREE.BoxGeometry(t, ucH, ucD), this.materials.wood);
+        ucSL.position.set(-ucW / 2 + t / 2, 1.5 + t + ucH / 2, 0);
+        bGroup.add(ucSL);
+        const ucSR = new THREE.Mesh(new THREE.BoxGeometry(t, ucH, ucD), this.materials.wood);
+        ucSR.position.set(ucW / 2 - t / 2, 1.5 + t + ucH / 2, 0);
+        bGroup.add(ucSR);
+
+        // Interior of upper cabinet
+        const intMat = new THREE.MeshStandardMaterial({ color: 0x0d0603, roughness: 1.0 });
+        const intBack = new THREE.Mesh(new THREE.BoxGeometry(ucW - t * 2, ucH - t, 0.02), intMat);
+        intBack.position.set(0, 1.5 + t + ucH / 2, -ucD / 2 + t + 0.01);
+        bGroup.add(intBack);
+
+        // Shelf inside upper cabinet
+        const ucShelf = new THREE.Mesh(new THREE.BoxGeometry(ucW - t * 2, t, ucD - t), this.materials.wainscoting);
+        ucShelf.position.set(0, 1.5 + t + ucH * 0.5, 0);
+        bGroup.add(ucShelf);
+
+        // Crown moulding on top
+        const crown = new THREE.Mesh(new THREE.BoxGeometry(bodyW + 0.1, 0.1, bodyD + 0.06), this.materials.wainscoting);
+        crown.position.set(0, bodyH + 0.05, 0);
+        bGroup.add(crown);
+
+        // A quill pen and inkwell on the desk surface
+        const inkMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.5, metalness: 0.3 });
+        const inkwell = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 10), inkMat);
+        inkwell.position.set(0.8, 1.5 + t + 0.05, 0.1);
+        bGroup.add(inkwell);
+
+        // Upper cabinet doors (double)
+        const doorW = ucW / 2 - t;
+        const doorH = ucH - t * 2 - 0.02;
+
+        const makeDoor = (side) => {
+            const dg = new THREE.Group();
+            const dm = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.06), this.materials.wainscoting);
+            dm.position.x = side * doorW / 2;
+            dg.add(dm);
+            const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e0e05, roughness: 0.9 });
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.7, doorH * 0.75, 0.02), panelMat);
+            panel.position.set(side * doorW / 2, 0, 0.04);
+            dg.add(panel);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, metalness: 0.9, roughness: 0.2 });
+            const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), handleMat);
+            knob.position.set(side * (doorW - 0.12), 0, 0.065);
+            dg.add(knob);
+            return dg;
+        };
+
+        const doorL = makeDoor(1);
+        doorL.position.set(-ucW / 2 + t, 1.5 + t + ucH / 2, ucD / 2);
+        bGroup.add(doorL);
+
+        const doorR = makeDoor(-1);
+        doorR.position.set(ucW / 2 - t, 1.5 + t + ucH / 2, ucD / 2);
+        bGroup.add(doorR);
+
+        // Desk drawer
+        const drawerGroup = new THREE.Group();
+        const drawerMesh = new THREE.Mesh(new THREE.BoxGeometry(bodyW * 0.6, 0.22, 0.06), this.materials.wainscoting);
+        const drawerHandle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.04), this.materials.metal);
+        drawerHandle.position.z = 0.05;
+        drawerGroup.add(drawerMesh, drawerHandle);
+        drawerGroup.position.set(0, 1.38, bodyD / 2);
+        bGroup.add(drawerGroup);
+
+        bGroup.position.set(x, y, z);
+        bGroup.rotation.y = rotationY;
+        this.scene.add(bGroup);
+
+        const hitBox = this.createBox(bodyW + 0.15, bodyH + 0.15, bodyD + 0.12, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + bodyH / 2, z));
+        hitBox.userData.animatableParts = [doorL, doorR];
+        hitBox.userData.isDoubleDoor = true;
+        return hitBox;
+    }
+
+    createChaiseLongue(x, y, z, rotationY) {
+        const cGroup = new THREE.Group();
+        const fabricMat = new THREE.MeshStandardMaterial({ color: 0x3b1a1a, roughness: 0.9 });
+        const woodMat = this.materials.wainscoting;
+
+        // Base/seat
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 1.1), fabricMat);
+        seat.position.set(0, 0.45, 0);
+        cGroup.add(seat);
+
+        // Cushion on seat
+        const cushion = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.15, 0.95), new THREE.MeshStandardMaterial({ color: 0x5c2222, roughness: 1.0 }));
+        cushion.position.set(0, 0.67, 0);
+        cGroup.add(cushion);
+
+        // Raised backrest (one long side)
+        const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.9, 0.25), fabricMat);
+        back.position.set(0, 0.9, -0.45);
+        back.rotation.x = -0.15;
+        cGroup.add(back);
+
+        // Raised head-end armrest
+        const headRest = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 1.1), fabricMat);
+        headRest.position.set(-1.5, 0.8, 0);
+        cGroup.add(headRest);
+
+        // Low foot-end
+        const footEnd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 1.1), woodMat);
+        footEnd.position.set(1.5, 0.45, 0);
+        cGroup.add(footEnd);
+
+        // Cabriole legs (4 short turned legs)
+        const legGeo = new THREE.CylinderGeometry(0.06, 0.04, 0.35, 8);
+        [[-1.4, -0.45], [-1.4, 0.45], [1.4, -0.45], [1.4, 0.45]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(legGeo, woodMat);
+            leg.position.set(lx, 0.17, lz);
+            cGroup.add(leg);
+        });
+
+        cGroup.position.set(x, y, z);
+        cGroup.rotation.y = rotationY;
+        this.scene.add(cGroup);
+
+        // No searchable drawers — just a collider
+        const hitBox = this.createBox(3.4, 1.0, 1.3, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.5, z));
         return hitBox;
     }
 
@@ -759,6 +1550,32 @@ export class Level {
         this.scene.add(winGroup);
     }
 
+    createBookshelf(x, y, z, rotationY) {
+        const shelfGroup = new THREE.Group();
+
+        // Main body
+        const bodyGeo = new THREE.BoxGeometry(3, 5, 1);
+        const body = new THREE.Mesh(bodyGeo, this.materials.wood);
+        body.position.y = 2.5;
+        shelfGroup.add(body);
+
+        // Shelves
+        const shelfGeo = new THREE.BoxGeometry(2.8, 0.1, 0.8);
+        const shelfMat = this.materials.wood;
+        for (let i = 0; i < 4; i++) {
+            const shelf = new THREE.Mesh(shelfGeo, shelfMat);
+            shelf.position.y = 1.0 + i * 1.0;
+            shelfGroup.add(shelf);
+        }
+
+        shelfGroup.position.set(x, y, z);
+        shelfGroup.rotation.y = rotationY;
+        this.scene.add(shelfGroup);
+
+        const hitBox = this.createBox(3, 5, 1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.5, z));
+        return hitBox;
+    }
+
     createLantern(x, y, z, color, intensity) {
         const lanternGroup = new THREE.Group();
 
@@ -802,34 +1619,191 @@ export class Level {
         const mat = this.materials.wood; // Detailed wood grain
 
         // Panel offsets to prevent z-fighting (door is 0.5 thick, faces are at +/- 0.25)
-        const addPanelsForFace = (offsetX) => {
-            const pThickness = 0.05;
+}
 
-            // Top Panel
-            const topGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
-            const top = new THREE.Mesh(topGeo, mat);
-            top.position.set(offsetX, 1.0, 0);
+createChaiseLongue(x, y, z, rotationY) {
+const cGroup = new THREE.Group();
+const fabricMat = new THREE.MeshStandardMaterial({ color: 0x3b1a1a, roughness: 0.9 });
+const woodMat = this.materials.wainscoting;
 
-            // Middle Panel
-            const midGeo = new THREE.BoxGeometry(pThickness, 1.3, 2.0);
-            const mid = new THREE.Mesh(midGeo, mat);
-            mid.position.set(offsetX, -0.1, 0);
+// Base/seat
+const seat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 1.1), fabricMat);
+seat.position.set(0, 0.45, 0);
+cGroup.add(seat);
 
-            // Bottom Panel
-            const botGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
-            const bot = new THREE.Mesh(botGeo, mat);
-            bot.position.set(offsetX, -1.2, 0);
+// Cushion on seat
+const cushion = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.15, 0.95), new THREE.MeshStandardMaterial({ color: 0x5c2222, roughness: 1.0 }));
+cushion.position.set(0, 0.67, 0);
+cGroup.add(cushion);
 
-            // Brass Doorknob
-            const knobGeo = new THREE.SphereGeometry(0.08, 16, 16);
-            const knob = new THREE.Mesh(knobGeo, this.materials.metal);
-            const zOffset = (offsetX > 0) ? -1.0 : 1.0;
-            knob.position.set(offsetX > 0 ? offsetX + 0.05 : offsetX - 0.05, -0.1, zOffset);
+// Raised backrest (one long side)
+const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.9, 0.25), fabricMat);
+back.position.set(0, 0.9, -0.45);
+back.rotation.x = -0.15;
+cGroup.add(back);
 
-            doorMesh.add(top, mid, bot, knob);
-        };
+// Raised head-end armrest
+const headRest = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 1.1), fabricMat);
+headRest.position.set(-1.5, 0.8, 0);
+cGroup.add(headRest);
 
-        addPanelsForFace(0.26); // Outside face
-        addPanelsForFace(-0.26); // Inside face
-    }
+// Low foot-end
+const footEnd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 1.1), woodMat);
+footEnd.position.set(1.5, 0.45, 0);
+cGroup.add(footEnd);
+
+// Cabriole legs (4 short turned legs)
+const legGeo = new THREE.CylinderGeometry(0.06, 0.04, 0.35, 8);
+[[ -1.4, -0.45 ], [ -1.4, 0.45 ], [ 1.4, -0.45 ], [ 1.4, 0.45 ]].forEach(([ lx, lz ]) => {
+const leg = new THREE.Mesh(legGeo, woodMat);
+leg.position.set(lx, 0.17, lz);
+cGroup.add(leg);
+});
+
+cGroup.position.set(x, y, z);
+cGroup.rotation.y = rotationY;
+this.scene.add(cGroup);
+
+// No searchable drawers — just a collider
+const hitBox = this.createBox(3.4, 1.0, 1.3, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.5, z));
+return hitBox;
+}
+
+createBoardedWindow(x, y, z, rotationY) {
+const winGroup = new THREE.Group();
+
+// Recessed frame (dark)
+const frameGeo = new THREE.BoxGeometry(2, 3, 0.1);
+const frame = new THREE.Mesh(frameGeo, new THREE.MeshStandardMaterial({ color: 0x050505 })); // Black hole
+winGroup.add(frame);
+
+// Window casing
+const casingTopGeo = new THREE.BoxGeometry(2.4, 0.2, 0.2);
+const cTop = new THREE.Mesh(casingTopGeo, this.materials.wood);
+cTop.position.set(0, 1.6, 0.05);
+winGroup.add(cTop);
+const cBot = new THREE.Mesh(casingTopGeo, this.materials.wood);
+cBot.position.set(0, -1.6, 0.05);
+winGroup.add(cBot);
+
+const casingSideGeo = new THREE.BoxGeometry(0.2, 3.4, 0.2);
+const cL = new THREE.Mesh(casingSideGeo, this.materials.wood);
+cL.position.set(-1.1, 0, 0.05);
+winGroup.add(cL);
+const cR = new THREE.Mesh(casingSideGeo, this.materials.wood);
+cR.position.set(1.1, 0, 0.05);
+winGroup.add(cR);
+
+// Wooden Boards
+const boardGeo = new THREE.BoxGeometry(2.2, 0.4, 0.1);
+for (let i = -1.0; i <= 1.0; i += 0.6) {
+const board = new THREE.Mesh(boardGeo, this.materials.wainscoting); // Use lighter/rougher wood
+board.position.set(
+(Math.random() - 0.5) * 0.1,
+i + (Math.random() - 0.5) * 0.2,
+0.15 + Math.random() * 0.05
+);
+board.rotation.z = (Math.random() - 0.5) * 0.1;
+winGroup.add(board);
+}
+
+winGroup.position.set(x, y, z);
+winGroup.rotation.y = rotationY;
+this.scene.add(winGroup);
+}
+
+createBookshelf(x, y, z, rotationY) {
+const shelfGroup = new THREE.Group();
+
+// Main body
+const bodyGeo = new THREE.BoxGeometry(3, 5, 1);
+const body = new THREE.Mesh(bodyGeo, this.materials.wood);
+body.position.y = 2.5;
+shelfGroup.add(body);
+
+// Shelves
+const shelfGeo = new THREE.BoxGeometry(2.8, 0.1, 0.8);
+const shelfMat = this.materials.wood;
+for (let i = 0; i < 4; i++) {
+const shelf = new THREE.Mesh(shelfGeo, shelfMat);
+shelf.position.y = 1.0 + i * 1.0;
+shelfGroup.add(shelf);
+}
+
+shelfGroup.position.set(x, y, z);
+shelfGroup.rotation.y = rotationY;
+this.scene.add(shelfGroup);
+
+const hitBox = this.createBox(3, 5, 1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.5, z));
+return hitBox;
+}
+
+createLantern(x, y, z, color, intensity) {
+const lanternGroup = new THREE.Group();
+
+// Base
+const baseGeo = new THREE.CylinderGeometry(0.3, 0.1, 0.5);
+const base = new THREE.Mesh(baseGeo, this.materials.metal);
+base.position.set(0, -0.6, 0);
+lanternGroup.add(base);
+
+// Top Panel
+const topGeo = new THREE.BoxGeometry(0.5, 0.5, 2.0);
+const top = new THREE.Mesh(topGeo, this.materials.metal);
+top.position.set(0, 0.6, 0);
+lanternGroup.add(top);
+
+// Brass Doorknob
+const knobGeo = new THREE.SphereGeometry(0.08, 16, 16);
+const knob = new THREE.Mesh(knobGeo, this.materials.metal);
+knob.position.set(0, 0.6, 0);
+lanternGroup.add(knob);
+
+// Light
+const light = new THREE.PointLight(color, intensity, 15);
+light.position.set(0, 0, 0);
+light.castShadow = true;
+lanternGroup.add(light);
+
+lanternGroup.position.set(x, y, z);
+this.scene.add(lanternGroup);
+
+const hitBox = this.createBox(0.5, 0.8, 0.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.4, z));
+return hitBox;
+}
+
+decorateVictorianDoor(doorMesh) {
+const mat = this.materials.wood; // Detailed wood grain
+
+// Panel offsets to prevent z-fighting (door is 0.5 thick, faces are at +/- 0.25)
+const addPanelsForFace = (offsetX) => {
+const pThickness = 0.05;
+
+// Top Panel
+const topGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
+const top = new THREE.Mesh(topGeo, mat);
+top.position.set(offsetX, 1.0, 0);
+
+// Middle Panel
+const midGeo = new THREE.BoxGeometry(pThickness, 1.3, 2.0);
+const mid = new THREE.Mesh(midGeo, mat);
+mid.position.set(offsetX, -0.1, 0);
+
+// Bottom Panel
+const botGeo = new THREE.BoxGeometry(pThickness, 0.5, 2.0);
+const bot = new THREE.Mesh(botGeo, mat);
+bot.position.set(offsetX, -1.2, 0);
+
+// Brass Doorknob
+const knobGeo = new THREE.SphereGeometry(0.08, 16, 16);
+const knob = new THREE.Mesh(knobGeo, this.materials.metal);
+const zOffset = (offsetX > 0) ? -1.0 : 1.0;
+knob.position.set(offsetX > 0 ? offsetX + 0.05 : offsetX - 0.05, -0.1, zOffset);
+
+doorMesh.add(top, mid, bot, knob);
+};
+
+addPanelsForFace(0.26); // Outside face
+addPanelsForFace(-0.26); // Inside face
+}
 }
