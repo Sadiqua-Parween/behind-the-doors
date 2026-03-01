@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Nosifer&family=Special+Elite&display=swap');
+
+:root {
+    --blood-red: #8a0303;
+    --dark-bg: #0a0a0a;
+    --text-color: #dcdcdc;
+    --highlight: #ff3333;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+    font-family: 'Courier Prime', monospace;
+    color: var(--text-color);
+    user-select: none;
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    z-index: 1;
+    /* Below UI elements */
+}
+
+/* Vignette Overlay for proper Flashlight feel */
+#game-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    background: radial-gradient(circle, rgba(0, 0, 0, 0) 20%, rgba(0, 0, 0, 0.85) 90%);
+}
+
+/* --- Start Screen Blocker --- */
+#blocker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    text-align: center;
+    transition: opacity 1s ease;
+    pointer-events: auto;
+}
+
+#instructions {
+    color: var(--blood-red);
+    cursor: pointer;
+    text-shadow: 2px 2px 4px #000;
+}
+
+.title {
+    font-family: 'Nosifer', cursive;
+    font-size: 6rem;
+    margin: 0 0 20px 0;
+    letter-spacing: 10px;
+    color: var(--blood-red);
+    text-shadow: 0 0 10px rgba(138, 3, 3, 0.8), 2px 2px 0 #000;
+}
+
+#instructions p {
+    font-size: 1.2rem;
+    color: #ccc;
+    font-family: 'Special Elite', cursive;
+    line-height: 1.6;
+}
+
+/* --- In-Game UI Elements --- */
+.hidden {
+    display: none !important;
+    opacity: 0;
+}
+
+#reticle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+#reticle.active {
+    background-color: var(--highlight);
+    transform: translate(-50%, -50%) scale(1.5);
+}
+
+#interaction-prompt {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Special Elite', cursive;
+    font-size: 1.2rem;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+    pointer-events: none;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+}
+
+/* --- Dialogue System --- */
+#dialogue-container {
+    position: absolute;
+    bottom: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    min-height: 100px;
+    background: rgba(10, 10, 10, 0.8);
+    border: 1px solid #333;
+    border-left: 5px solid var(--blood-red);
+    padding: 20px;
+    box-sizing: border-box;
+    z-index: 50;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+}
+
+#dialogue-text {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    font-family: 'Courier Prime', monospace;
+    white-space: pre-wrap;
+}
+
+.blinking-cursor {
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+/* --- Inventory / Notes --- */
+#inventory-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 20;
+    pointer-events: none;
+}
+
+.inventory-item {
+    background: rgba(20, 20, 20, 0.7);
+    border: 1px solid #444;
+    padding: 5px 15px;
+    font-family: 'Special Elite', cursive;
+    font-size: 0.9rem;
+    color: #ccc;
+    text-shadow: 1px 1px 0 #000;
+}

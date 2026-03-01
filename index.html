@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angels of Death - Floor B6</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- UI Overlays -->
+    <div id="blocker">
+        <div id="instructions">
+            <h1 class="title">B6</h1>
+            <p>
+                Click to play<br/><br/>
+                Move: WASD<br/>
+                Look: Mouse<br/>
+                Interact: Click (when Reticle indicates)<br/>
+                Flashlight: F<br/>
+            </p>
+        </div>
+    </div>
+
+    <!-- Reticle for interacting with objects -->
+    <div id="reticle"></div>
+
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt" class="hidden">
+        [ Click to Examine ]
+    </div>
+
+    <!-- Dialogue / Narrative Box -->
+    <div id="dialogue-container" class="hidden">
+        <p id="dialogue-text"></p>
+        <span class="blinking-cursor">_</span>
+    </div>
+
+    <!-- Inventory / Notes -->
+    <div id="inventory-container">
+        <!-- populated dynamically -->
+    </div>
+
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- Load GSAP for animations (optional but good for smooth UI transitions) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <!-- Main Game Logic -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
