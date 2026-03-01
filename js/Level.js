@@ -4,6 +4,9 @@ export class Level {
     constructor(scene) {
         this.scene = scene;
         this.colliders = []; // Store meshes for player collision
+        
+        // Generate random 4-digit code for each game
+        this.room2Password = this.generateRandomCode();
 
         // Textures
         const textureLoader = new THREE.TextureLoader();
@@ -16,7 +19,7 @@ export class Level {
         sofaTexture.wrapS = THREE.RepeatWrapping; sofaTexture.wrapT = THREE.RepeatWrapping; sofaTexture.repeat.set(2, 2);
         bedTexture.wrapS = THREE.RepeatWrapping; bedTexture.wrapT = THREE.RepeatWrapping; bedTexture.repeat.set(2, 2);
         wardrobeTexture.wrapS = THREE.RepeatWrapping; wardrobeTexture.wrapT = THREE.RepeatWrapping; wardrobeTexture.repeat.set(1, 1);
-
+        
         // Materials
         this.materials = {
             wall: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 }),
@@ -41,6 +44,58 @@ export class Level {
         this.addObjects();
     }
 
+    generateRandomCode() {
+        return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    createLiftInterior(room2Center, room2Length) {
+        const liftGroup = new THREE.Group();
+        
+        // Lift floor
+        const liftFloor = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 4), this.materials.metal);
+        liftFloor.position.set(room2Center + room2Length / 2 + 2, 0, 0);
+        liftGroup.add(liftFloor);
+        
+        // Lift walls
+        const liftWallMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.8, roughness: 0.3 });
+        // Back wall
+        const liftBack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 4), liftWallMat);
+        liftBack.position.set(room2Center + room2Length / 2 + 2.1, 2, 0);
+        liftGroup.add(liftBack);
+        
+        // Side walls
+        const liftLeft = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 4), liftWallMat);
+        liftLeft.position.set(room2Center + room2Length / 2 - 1.8, 2, 0);
+        liftGroup.add(liftLeft);
+        const liftRight = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4, 4), liftWallMat);
+        liftRight.position.set(room2Center + room2Length / 2 + 1.8, 2, 0);
+        liftGroup.add(liftRight);
+        
+        // Ceiling
+        const liftCeiling = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 4), liftWallMat);
+        liftCeiling.position.set(room2Center + room2Length / 2 + 2, 4, 0);
+        liftGroup.add(liftCeiling);
+        
+        // Control panel
+        const panelGeo = new THREE.BoxGeometry(0.8, 0.6, 0.1);
+        const panel = new THREE.Mesh(panelGeo, this.materials.metal);
+        panel.position.set(room2Center + room2Length / 2 + 2, 2, 1.8);
+        liftGroup.add(panel);
+        
+        // Lift lighting
+        const liftLight = new THREE.PointLight(0xffffff, 1.5, 5);
+        liftLight.position.set(room2Center + room2Length / 2 + 2, 3.5, 0);
+        liftGroup.add(liftLight);
+        
+        // Store lift group for animation
+        this.liftGroup = liftGroup;
+        this.liftGroup.position.set(room2Center + room2Length / 2 + 2, 0, 0);
+        this.scene.add(this.liftGroup);
+        
+        // Initially hide lift (visible only when door opens)
+        this.liftGroup.visible = false;
+    }
+
     createBox(width, height, depth, material, position) {
         const geometry = new THREE.BoxGeometry(width, height, depth);
         const mesh = new THREE.Mesh(geometry, material);
@@ -49,11 +104,7 @@ export class Level {
         mesh.castShadow = true;
         this.scene.add(mesh);
 
-        // Prevent adding floor/ceiling to simple AABB colliders for X/Z movement
-        if (material !== this.materials.floor && material !== this.materials.ceiling) {
-            this.colliders.push(mesh);
-        }
-
+        this.colliders.push(mesh);
         return mesh;
     }
 
@@ -86,6 +137,7 @@ export class Level {
         this.decorateVictorianDoor(this.trapDoor);
         this.trapDoor.userData = { id: 'trap_door_open', interactable: false, prompt: "Open Door" };
         this.scene.add(this.trapDoor);
+        // Don't add to colliders initially since it's "open" (moved into wall)
         this.trapTriggered = false;
 
         // Build the Escape Room (extends from X=20 to X=40)
@@ -130,11 +182,15 @@ export class Level {
         this.createBox(thickness, wallHeight, room2Width / 2 - 1.5, this.materials.metal, new THREE.Vector3(room2Center + room2Length / 2, wallHeight / 2, room2Width / 4 + 0.75));
 
         // Final Exit Door
-        this.finalExitDoor = new THREE.Mesh(doorGeometry, this.materials.metal);
+        const finalDoorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
+        this.finalExitDoor = new THREE.Mesh(doorGeometry, finalDoorMat);
         this.finalExitDoor.position.set(room2Center + room2Length / 2, (wallHeight - 0.5) / 2, 0);
         this.finalExitDoor.userData = { id: 'final_exit_door', interactable: true, prompt: "Use Keypad", dialogue: "There's a heavy digital keypad on this door. I need a 4-digit code." };
         this.scene.add(this.finalExitDoor);
         this.colliders.push(this.finalExitDoor);
+
+        // Create lift interior behind door
+        this.createLiftInterior(room2Center, room2Length);
 
         // Room West Wall (Connects to Corridor, closing the gap)
         this.createBox(thickness, wallHeight, (roomSize - corridorWidth) / 2, this.materials.greenWallpaper, new THREE.Vector3(corridorLength / 2, wallHeight / 2, -roomSize / 2 + (roomSize - corridorWidth) / 4));
@@ -171,13 +227,13 @@ export class Level {
         this.elevatorDoorLeft.position.set(-corridorLength / 2, wallHeight / 2, -1.5);
         this.elevatorDoorLeft.castShadow = true;
         this.scene.add(this.elevatorDoorLeft);
-        this.colliders.push(this.elevatorDoorLeft); // They block you initially
+        // Don't add to colliders initially - doors will be animated open
 
         this.elevatorDoorRight = new THREE.Mesh(elDoorGeo, this.materials.metal);
         this.elevatorDoorRight.position.set(-corridorLength / 2, wallHeight / 2, 1.5);
         this.elevatorDoorRight.castShadow = true;
         this.scene.add(this.elevatorDoorRight);
-        this.colliders.push(this.elevatorDoorRight);
+        // Don't add to colliders initially - doors will be animated open
 
         // Elevator Interior enclosed (West of the doors)
         const elDepth = 4;
@@ -450,7 +506,6 @@ export class Level {
             }
         }
         cageGroup.position.set(65, 0.1, 7);
-        this.room2Password = "1984"; // The 4 digit code
         cageGroup.userData = { id: 'iron_cage', interactable: true, prompt: "Inspect Iron Cage", dialogue: "There's a decapitated corpse in here... and a code scratched into the metal floor: <span style='color:red; font-size: 1.5em;'>" + this.room2Password + "</span>" };
         this.scene.add(cageGroup);
         const cageHit = this.createBox(3.4, 4.4, 3.4, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(65, 2.2, 7));
@@ -575,11 +630,7 @@ export class Level {
             // Animate doors sliding apart along the Z axis
             gsap.to(this.elevatorDoorLeft.position, { z: -4.5, duration: 4, ease: "power1.inOut" });
             gsap.to(this.elevatorDoorRight.position, { z: 4.5, duration: 4, ease: "power1.inOut" });
-
-            // Remove doors from colliders so player can walk out
-            setTimeout(() => {
-                this.colliders = this.colliders.filter(c => c !== this.elevatorDoorLeft && c !== this.elevatorDoorRight);
-            }, 500); // Give player time to see them opening before removing barriers completely
+            // No need to remove from colliders since they were never added
         }
     }
 
@@ -1734,42 +1785,6 @@ shelfGroup.position.set(x, y, z);
 shelfGroup.rotation.y = rotationY;
 this.scene.add(shelfGroup);
 
-const hitBox = this.createBox(3, 5, 1, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 2.5, z));
-return hitBox;
-}
-
-createLantern(x, y, z, color, intensity) {
-const lanternGroup = new THREE.Group();
-
-// Base
-const baseGeo = new THREE.CylinderGeometry(0.3, 0.1, 0.5);
-const base = new THREE.Mesh(baseGeo, this.materials.metal);
-base.position.set(0, -0.6, 0);
-lanternGroup.add(base);
-
-// Top Panel
-const topGeo = new THREE.BoxGeometry(0.5, 0.5, 2.0);
-const top = new THREE.Mesh(topGeo, this.materials.metal);
-top.position.set(0, 0.6, 0);
-lanternGroup.add(top);
-
-// Brass Doorknob
-const knobGeo = new THREE.SphereGeometry(0.08, 16, 16);
-const knob = new THREE.Mesh(knobGeo, this.materials.metal);
-knob.position.set(0, 0.6, 0);
-lanternGroup.add(knob);
-
-// Light
-const light = new THREE.PointLight(color, intensity, 15);
-light.position.set(0, 0, 0);
-light.castShadow = true;
-lanternGroup.add(light);
-
-lanternGroup.position.set(x, y, z);
-this.scene.add(lanternGroup);
-
-const hitBox = this.createBox(0.5, 0.8, 0.5, new THREE.MeshBasicMaterial({ visible: false }), new THREE.Vector3(x, y + 0.4, z));
-return hitBox;
 }
 
 decorateVictorianDoor(doorMesh) {
@@ -1805,5 +1820,5 @@ doorMesh.add(top, mid, bot, knob);
 
 addPanelsForFace(0.26); // Outside face
 addPanelsForFace(-0.26); // Inside face
-}
+    }
 }

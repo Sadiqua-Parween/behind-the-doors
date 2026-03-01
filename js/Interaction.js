@@ -215,7 +215,9 @@ export class Interaction {
                         "It must be somewhere in this torture room..."
                     ]);
                 } else {
-                    this.ui.showKeypad(this.gameState.correctCode, () => {
+                    // Use the random code from Level
+                    const correctCode = this.player.level.room2Password;
+                    this.ui.showKeypad(correctCode, () => {
                         this.handleCorrectCode();
                     });
                 }
@@ -223,15 +225,17 @@ export class Interaction {
             case 'iron_cage':
                 if (!this.gameState.foundCode) {
                     this.gameState.foundCode = true;
+                    const randomCode = this.player.level.room2Password;
                     this.ui.showDialogue([
                         "There's a decapitated corpse in here...",
                         "Wait! I can see something scratched into the metal floor:",
-                        "<span style='color:red; font-size: 1.5em;'>1984</span>",
+                        "<span style='color:red; font-size: 1.5em;'>" + randomCode + "</span>",
                         "That must be the code for the exit door! I need to hurry!"
                     ]);
                 } else {
+                    const randomCode = this.player.level.room2Password;
                     this.ui.showDialogue([
-                        "The code is still there: <span style='color:red; font-size: 1.5em;'>1984</span>",
+                        "The code is still there: <span style='color:red; font-size: 1.5em;'>" + randomCode + "</span>",
                         "I need to get to the exit door and enter it now!"
                     ]);
                 }
@@ -410,8 +414,7 @@ export class Interaction {
         winScreen.innerHTML = `
             <h1 style="font-size: 4em; margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">YOU ESCAPED!</h1>
             <p style="font-size: 1.5em; margin-bottom: 30px;">You survived the torture chambers and found your way out.</p>
-            <p style="font-size: 1.2em; margin-bottom: 40px; color: #00ff00;">The code was 1984, and you made it just in time!</p>
-            <p style="font-size: 1em; margin-bottom: 40px;">You escaped to freedom and safety!</p>
+            <p style="font-size: 1.2em; margin-bottom: 40px; color: #00ff00;">You escaped to freedom and safety!</p>
             <button onclick="window.location.reload()" style="
                 padding: 15px 30px;
                 font-size: 1.2em;

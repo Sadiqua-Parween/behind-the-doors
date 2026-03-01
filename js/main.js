@@ -17,7 +17,7 @@ class Game {
         // Scene setup
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
-        this.scene.fog = new THREE.Fog(0x000000, 2, 25); // Dense black fog for atmosphere
+        this.scene.fog = new THREE.Fog(0x000000, 5, 30); // Restored fog for atmosphere
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -38,6 +38,7 @@ class Game {
         this.audioManager = new AudioManager();
         this.ui = new UI(this.audioManager);
 
+        
         // Level Generation
         this.level = new Level(this.scene);
 
